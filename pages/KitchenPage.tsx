@@ -62,7 +62,7 @@ const KitchenPage: React.FC = () => {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await fetch('http://localhost:3001/api/orders');
+      const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/orders`);
       const data: Order[] = await resp.json();
       setActiveOrders(data.filter(o => o.status === 'active'));
     } catch (err) {
@@ -91,7 +91,7 @@ const KitchenPage: React.FC = () => {
       
       // Faz a requisição ao backend
       console.log('📡 Enviando DELETE para servidor...');
-      const resp = await fetch(`http://localhost:3001/api/orders/${orderId}`, { method: 'DELETE' });
+      const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/orders/${orderId}`, { method: 'DELETE' });
       console.log('📡 Resposta do servidor:', resp.status, resp.ok);
       
       if (!resp.ok) {

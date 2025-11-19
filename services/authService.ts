@@ -1,7 +1,8 @@
 import type { User } from "../types";
 
-// Ajustado para a porta onde o servidor está rodando localmente
-const API_URL = "http://localhost:3001/api";
+// Configuração da URL da API via variável de ambiente
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_URL = `${BASE_URL}/api`;
 
 // Validar CPF (formato básico)
 export const validateCPF = (cpf: string): boolean => {

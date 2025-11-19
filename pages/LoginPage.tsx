@@ -103,7 +103,7 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const res = await fetch("http://localhost:3001/api/users");
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/users`);
         if (!res.ok) throw new Error("bad");
         const list = await res.json();
         setUsers(list as User[]);
@@ -280,7 +280,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
         pontos: 0,
       };
 
-      const res = await fetch("http://localhost:3001/api/users", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

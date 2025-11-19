@@ -111,7 +111,7 @@ const AdminPage: React.FC = () => {
 
     // Carrega os dados iniciais do backend
     useEffect(() => {
-        fetch('http://localhost:3001/api/menu')
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/menu`)
             .then(res => res.json())
             .then(data => setMenu(data))
             .catch(err => console.error('Erro ao carregar cardápio:', err));

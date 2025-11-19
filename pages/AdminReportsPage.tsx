@@ -22,7 +22,7 @@ const AdminReportsPage: React.FC = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:3001/api/user-orders");
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/user-orders`);
       if (!res.ok) throw new Error("Erro ao buscar pedidos");
       const data = await res.json();
       setOrders(data);
@@ -64,7 +64,7 @@ Forneça 3-5 recomendações práticas e objetivas para:
 
 Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
 
-      const res = await fetch("http://localhost:3001/api/ai/suggestion", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/suggestion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
