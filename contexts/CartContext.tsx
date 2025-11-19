@@ -1,0 +1,121 @@
+import React, { createContext, useState, useContext, ReactNode } from "react";
+import type { CartItem, Product } from "../types";
+
+/*
+  Define o formato do contexto do carrinho.
+  - cartItems: lista de itens no carrinho
+  - addToCart: adiciona um produto (ou incrementa quantidade se já existir)
+  - removeFromCart: remove um item pelo id
+  - updateQuantity: atualiza a quantidade de um item (se <= 0 remove)
+  - clearCart: esvazia o carrinho
+  - cartTotal: total calculado do carrinho
+*/
+interface CartContextType {
+  cartItems: CartItem[];
+  addToCart: (product: Product) => void;
+  removeFromCart: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  cartTotal: number;
+}
+
+// Cria o contexto com tipo opcional (undefined por padrão até o Provider ser usado)
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
+/*
+  Provider do contexto do carrinho.
+  Envolve a árvore de componentes que precisa acessar o carrinho.
+  Recebe children como propriedade.
+*/
+export const CartProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  // Estado local que guarda os itens do carrinho
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  /*
+    Adiciona um produto ao carrinho.
+    - Se o produto já existir (mesmo id), incrementa a quantidade em 1.
+    - Caso contrário, adiciona o produto com quantity = 1.
+    Usa a função de atualização baseada no estado anterior para evitar condições de corrida.
+  */
+  const addToCart = (product: Product) => {
+    setCartItems((prevItems) => {
+      const existingItem = prevItems.find((item) => item.id === product.id);
+      if (existingItem) {
+        return prevItems.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prevItems, { ...product, quantity: 1 }];
+    });
+  };
+
+  /*
+    Remove um item do carrinho pelo productId.
+    Filtra os itens mantendo apenas os que não possuem o id informado.
+  */
+  const removeFromCart = (productId: string) => {
+    setCartItems((prevItems) =>
+      prevItems.filter((item) => item.id !== productId)
+    );
+  };
+
+  /*
+    Atualiza a quantidade de um item.
+    - Se a quantidade informada for menor ou igual a zero, remove o item.
+    - Caso contrário, mapeia os itens e atualiza a quantidade do item correspondente.
+  */
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(productId);
+    } else {
+      setCartItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === productId ? { ...item, quantity } : item
+        )
+      );
+    }
+  };
+
+  // Limpa o carrinho, definindo a lista de itens como vazia
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
+  // Calcula o total do carrinho somando price * quantity de cada item
+  const cartTotal = cartItems.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
+
+  // Fornece o estado e as funções do carrinho para os componentes filhos
+  return (
+    <CartContext.Provider
+      value={{
+        cartItems,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        cartTotal,
+      }}
+    >
+      {children}
+    </CartContext.Provider>
+  );
+};
+
+/*
+  Hook customizado para consumir o contexto do carrinho.
+  Lança um erro se usado fora do CartProvider, ajudando a detectar uso incorreto.
+*/
+export const useCart = (): CartContextType => {
+  const context = useContext(CartContext);
+  if (context === undefined) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
+  return context;
+};

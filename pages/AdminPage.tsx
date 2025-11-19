@@ -1,0 +1,215 @@
+// Página: /pages/AdminPage.tsx
+// Esta página fornece uma interface administrativa simples para listar,
+// adicionar, editar e remover produtos do "cardápio".
+// Comentários em português explicam cada parte do código.
+
+import React, { useState, useEffect } from 'react';
+import type { Product } from '../types';
+
+// --- Componente de formulário de produto (Modal) ---
+// Props esperadas pelo formulário:
+interface ProductFormProps {
+    product: Product | null; // produto que será editado (null para novo)
+    onSave: (product: Product) => void; // callback ao salvar
+    onCancel: () => void; // callback ao cancelar/fechar
+}
+
+const ProductForm: React.FC<ProductFormProps> = ({ product, onSave, onCancel }) => {
+    // Estado local do formulário. Usamos Omit para não incluir 'id' e 'imageUrl'
+    // no tipo inicial, mas permitimos opcionalmente 'id' enquanto editamos.
+    const [formData, setFormData] = useState<Omit<Product, 'id' | 'imageUrl'> & {id?: string}>({
+        name: '',
+        description: '',
+        price: 0,
+        category: 'Pastel',
+    });
+
+    // Quando o prop `product` muda (por ex. abrir para editar), preenche o formulário.
+    useEffect(() => {
+        if (product) {
+            setFormData(product); // preenche com dados existentes
+        } else {
+            // limpa para novo produto
+            setFormData({ name: '', description: '', price: 0, category: 'Pastel' });
+        }
+    }, [product]);
+
+    // Atualiza campos do formulário. Convertendo price para número quando necessário.
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        // Se for o campo 'price', converte para float; caso contrário mantém string.
+        setFormData(prev => ({ ...prev, [name]: name === 'price' ? parseFloat(value) : value }));
+    };
+
+    // Ao submeter, cria um objeto Product final e chama onSave.
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const finalProduct: Product = {
+            ...formData,
+            // Se já houver id (edição) usa-o, senão gera um id simples baseado em timestamp.
+            id: formData.id || `prod_${Date.now()}`,
+            // Aqui não fazemos upload de imagem; usamos um placeholder.
+            imageUrl: formData.id ? (product?.imageUrl || 'https://picsum.photos/400/300') : 'https://picsum.photos/400/300',
+        };
+        onSave(finalProduct); // informa o componente pai sobre o produto salvo
+    };
+    
+    return (
+        // Modal em tela cheia com fundo escuro semitransparente
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg">
+                {/* Título muda conforme edição ou criação */}
+                <h2 className="text-2xl font-bold mb-6 text-amber-800">{product ? 'Editar Produto' : 'Adicionar Produto'}</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-stone-700">Nome</label>
+                        {/* Campo nome */}
+                        <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"/>
+                    </div>
+                     <div>
+                        <label htmlFor="description" className="block text-sm font-medium text-stone-700">Descrição</label>
+                        {/* Campo descrição (textarea) */}
+                        <textarea name="description" id="description" value={formData.description} onChange={handleChange} required rows={3} className="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"/>
+                    </div>
+                     <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label htmlFor="price" className="block text-sm font-medium text-stone-700">Preço</label>
+                            {/* Campo preço (numérico). step=0.01 para decimais */}
+                            <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} required step="0.01" className="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"/>
+                        </div>
+                        <div className="flex-1">
+                             <label htmlFor="category" className="block text-sm font-medium text-stone-700">Categoria</label>
+                             {/* Select de categoria */}
+                             <select name="category" id="category" value={formData.category} onChange={handleChange} className="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500 focus:ring-amber-500">
+                                 <option>Pastel</option>
+                                 <option>Bebida</option>
+                                 <option>Doce</option>
+                             </select>
+                        </div>
+                     </div>
+                    <div className="flex justify-end gap-4 pt-4">
+                        {/* Botão cancelar fecha o modal sem salvar */}
+                        <button type="button" onClick={onCancel} className="bg-stone-200 text-stone-800 font-semibold py-2 px-4 rounded-lg hover:bg-stone-300">Cancelar</button>
+                        {/* Botão salvar submete o formulário */}
+                        <button type="submit" className="bg-amber-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-amber-700">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+
+// --- Componente principal da página administrativa ---
+const AdminPage: React.FC = () => {
+    // Estado que contém a lista de produtos exibida na tabela
+    const [menu, setMenu] = useState<Product[]>([]);
+    // Controla se o modal de formulário está aberto
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    // Produto atual sendo editado (ou null para criar novo)
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+    // Carrega os dados iniciais do backend
+    useEffect(() => {
+        fetch('http://localhost:3001/api/menu')
+            .then(res => res.json())
+            .then(data => setMenu(data))
+            .catch(err => console.error('Erro ao carregar cardápio:', err));
+    }, []);
+
+    // Trata salvar (tanto criação quanto edição)
+    const handleSaveProduct = (product: Product) => {
+        if (editingProduct) {
+            // Se estivermos editando, substitui o produto existente
+            setMenu(menu.map(p => p.id === product.id ? product : p));
+            console.log("Updating product:", product);
+        } else {
+            // Se for novo, adiciona no final da lista
+            setMenu([...menu, product]);
+            console.log("Adding product:", product);
+        }
+        // Fecha o modal e reseta o estado de edição
+        setIsFormOpen(false);
+        setEditingProduct(null);
+    };
+
+    // Remove um produto pela id (simula DELETE /cardapio/:id)
+    const handleDeleteProduct = (productId: string) => {
+        // Confirmação simples antes de remover
+        if(window.confirm("Tem certeza que deseja remover este produto?")){
+            setMenu(menu.filter(p => p.id !== productId));
+            console.log("Deleting product with ID:", productId);
+        }
+    };
+    
+    return (
+        <div className="container mx-auto">
+            {/* Cabeçalho com título e botão de adicionar */}
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-4xl font-bold text-amber-800">Gerenciar Cardápio</h1>
+                {/* Ao clicar, abre o modal em modo criar (editingProduct = null) */}
+                <button onClick={() => { setEditingProduct(null); setIsFormOpen(true); }} className="bg-amber-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-600 transition-colors shadow-md">
+                    Adicionar Produto
+                </button>
+            </div>
+
+            {/* Renderiza o formulário/modal condicionalmente */}
+             {isFormOpen && (
+                <ProductForm 
+                    product={editingProduct} 
+                    onSave={handleSaveProduct} 
+                    onCancel={() => { setIsFormOpen(false); setEditingProduct(null); }}
+                />
+            )}
+
+            {/* Tabela que lista os produtos */}
+            <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
+                <table className="min-w-full divide-y divide-stone-200">
+                    <thead className="bg-stone-50">
+                        <tr>
+                            {/* Cabeçalhos de coluna */}
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Produto</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Categoria</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Preço</th>
+                            <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-stone-200">
+                        {/* Itera sobre o array de produtos para gerar as linhas */}
+                        {menu.map(product => (
+                            <tr key={product.id}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex items-center">
+                                        <div className="flex-shrink-0 h-10 w-10">
+                                            {/* Miniatura da imagem do produto */}
+                                            <img className="h-10 w-10 rounded-full object-cover" src={product.imageUrl} alt={product.name} />
+                                        </div>
+                                        <div className="ml-4">
+                                            {/* Nome e descrição */}
+                                            <div className="text-sm font-medium text-stone-900">{product.name}</div>
+                                            <div className="text-sm text-stone-500 truncate max-w-xs">{product.description}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    {/* Categoria com estilo de badge */}
+                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{product.category}</span>
+                                </td>
+                                {/* Preço formatado com duas casas decimais */}
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-900">R${product.price.toFixed(2)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    {/* Botões de ação: editar abre o modal preenchido */}
+                                    <button onClick={() => { setEditingProduct(product); setIsFormOpen(true); }} className="text-amber-600 hover:text-amber-900 mr-4">Editar</button>
+                                    {/* Remover chama a função de deletar */}
+                                    <button onClick={() => handleDeleteProduct(product.id)} className="text-red-600 hover:text-red-900">Remover</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+export default AdminPage;
