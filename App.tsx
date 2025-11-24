@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
 import LoginPage from "./pages/LoginPage";
 import MenuPage from "./pages/MenuPage";
+import PaymentPage from "./pages/PaymentPage"; // Nova importação
 import KitchenPage from "./pages/KitchenPage";
 import KitchenLoginPage from "./pages/KitchenLoginPage";
 import AdminPage from "./pages/AdminPage";
@@ -46,16 +47,16 @@ const RoleProtectedRoute: React.FC<{
   redirectTo?: string;
 }> = ({ children, allowedRoles, redirectTo = "/login" }) => {
   const { currentUser } = useAuth();
-  
+
   if (!currentUser) {
     return <Navigate to={redirectTo} replace />;
   }
-  
+
   const userRole = currentUser.role || "customer";
   if (!allowedRoles.includes(userRole)) {
     return <Navigate to={redirectTo} replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -83,7 +84,7 @@ const RouterBody: React.FC = () => {
         <Routes>
           <Route path="/" element={<ScreensaverPage />} />
           <Route path="/login" element={<LoginPage />} />
-          
+
           {/* Rota protegida para clientes */}
           <Route
             path="/menu"
@@ -93,43 +94,53 @@ const RouterBody: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          
+
+          {/* Rota protegida para pagamento (NOVA) */}
+          <Route
+            path="/payment"
+            element={
+              <ProtectedRoute>
+                <PaymentPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Rotas de login especiais (sem botão, só por URL) */}
           <Route path="/cozinha/login" element={<KitchenLoginPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
-          
+
           {/* Rota protegida para cozinha */}
           <Route
             path="/cozinha"
             element={
-              <RoleProtectedRoute 
-                allowedRoles={["kitchen"]} 
+              <RoleProtectedRoute
+                allowedRoles={["kitchen"]}
                 redirectTo="/cozinha/login"
               >
                 <KitchenPage />
               </RoleProtectedRoute>
             }
           />
-          
+
           {/* Rota protegida para admin */}
           <Route
             path="/admin"
             element={
-              <RoleProtectedRoute 
-                allowedRoles={["admin"]} 
+              <RoleProtectedRoute
+                allowedRoles={["admin"]}
                 redirectTo="/admin/login"
               >
                 <AdminPage />
               </RoleProtectedRoute>
             }
           />
-          
+
           {/* Rota protegida para relatórios do admin */}
           <Route
             path="/admin/reports"
             element={
-              <RoleProtectedRoute 
-                allowedRoles={["admin"]} 
+              <RoleProtectedRoute
+                allowedRoles={["admin"]}
                 redirectTo="/admin/login"
               >
                 <AdminReportsPage />
