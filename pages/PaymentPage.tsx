@@ -15,10 +15,13 @@ const PaymentPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<
     "credit" | "debit" | "pix" | null
   >(null);
+
   const [status, setStatus] = useState<
     "idle" | "processing" | "success" | "error"
   >("idle");
+
   const [errorMessage, setErrorMessage] = useState("");
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState("");
 
   // Se o carrinho estiver vazio, volta para o menu
   useEffect(() => {
@@ -31,12 +34,60 @@ const PaymentPage: React.FC = () => {
     if (!paymentMethod || !currentUser) return;
 
     setStatus("processing");
+    setPaymentStatusMessage("Iniciando conexão com a maquininha...");
 
     try {
-      // 1. Simular tempo de processamento da maquininha/gateway
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // 1. Criar a intenção de pagamento na maquininha via Backend
+      const createResp = await fetch(`${BACKEND_URL}/api/payment/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: cartTotal,
+          description: `Pedido de ${currentUser.name}`,
+          orderId: `temp_${Date.now()}`, // ID temporário
+        }),
+      });
 
-      // 2. Montar payload do pedido
+      const paymentData = await createResp.json();
+
+      if (!createResp.ok || !paymentData.id) {
+        throw new Error(
+          paymentData.error || "Erro ao conectar com a maquininha"
+        );
+      }
+
+      // 2. Polling: Verificar status a cada 3 segundos
+      setPaymentStatusMessage("Aguardando pagamento na maquininha...");
+
+      let attempts = 0;
+      const maxAttempts = 60; // ~3 minutos de espera máxima
+      let approved = false;
+
+      while (attempts < maxAttempts && !approved) {
+        // Espera 3 segundos antes de checar
+        await new Promise((r) => setTimeout(r, 3000));
+
+        const statusResp = await fetch(
+          `${BACKEND_URL}/api/payment/status/${paymentData.id}`
+        );
+        const statusData = await statusResp.json();
+
+        console.log("Status Maquininha:", statusData.status);
+
+        if (
+          statusData.status === "approved" ||
+          statusData.status === "FINISHED"
+        ) {
+          approved = true;
+        }
+        attempts++;
+      }
+
+      if (!approved) {
+        throw new Error("Tempo esgotado ou pagamento não identificado.");
+      }
+
+      // 3. Se aprovou, salva o pedido no banco de dados
       const payload = {
         userId: currentUser.id,
         userName: currentUser.name,
@@ -47,35 +98,36 @@ const PaymentPage: React.FC = () => {
           price: item.price,
         })),
         total: cartTotal,
-        paymentMethod: paymentMethod, // Enviando o método escolhido para o backend
-        status: "paid", // Assumindo que o pagamento foi aprovado na simulação
+        paymentMethod: paymentMethod,
+        status: "paid",
+        paymentId: paymentData.id,
       };
 
-      // 3. Enviar para o seu Backend
-      const resp = await fetch(`${BACKEND_URL}/api/orders`, {
+      const saveResp = await fetch(`${BACKEND_URL}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (!resp.ok) throw new Error("Falha ao registrar pedido");
+      if (!saveResp.ok) throw new Error("Falha ao salvar pedido no sistema");
 
-      const savedOrder: Order = await resp.json();
+      const savedOrder: Order = await saveResp.json();
 
-      // 4. Sucesso
+      // 4. Sucesso Final
       addOrderToHistory(savedOrder);
       setStatus("success");
       clearCart();
 
-      // 5. Redirecionar após 5 segundos (Screensaver ou Menu)
+      // 5. Redirecionar após 5 segundos
       setTimeout(() => {
         navigate("/"); // Vai para o screensaver/início
       }, 5000);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setStatus("error");
-      setErrorMessage("Erro ao processar pagamento. Tente novamente.");
-      setTimeout(() => setStatus("idle"), 3000);
+      setErrorMessage(err.message || "Erro ao processar pagamento.");
+      // Volta para idle após 4 segundos para tentar de novo
+      setTimeout(() => setStatus("idle"), 4000);
     }
   };
 
@@ -118,6 +170,7 @@ const PaymentPage: React.FC = () => {
         <button
           onClick={() => navigate("/menu")}
           className="text-amber-600 hover:bg-amber-100 p-2 rounded-full"
+          disabled={status === "processing"}
         >
           ←
         </button>
@@ -174,6 +227,15 @@ const PaymentPage: React.FC = () => {
             selected={paymentMethod === "pix"}
             onClick={() => setPaymentMethod("pix")}
           />
+
+          {/* Mensagem de Status (Processando ou Erro) */}
+          {status === "processing" && (
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded animate-pulse">
+              <p className="text-blue-800 font-semibold text-center">
+                {paymentStatusMessage}
+              </p>
+            </div>
+          )}
 
           {status === "error" && (
             <div className="bg-red-100 text-red-700 p-3 rounded-lg text-center font-semibold">
