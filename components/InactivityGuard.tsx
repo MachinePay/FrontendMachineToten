@@ -1,10 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useCart } from '../contexts/CartContext';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { useCart } from "../contexts/CartContext";
 
 const INACTIVITY_MS = 30_000; // 30 seconds
-const COUNTDOWN_SECONDS = 10;  // 10 seconds grace period
+const COUNTDOWN_SECONDS = 10; // 10 seconds grace period
 
 const InactivityGuard: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -18,8 +24,20 @@ const InactivityGuard: React.FC = () => {
   const inactivityTimerRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
 
-  const isScreensaver = location.pathname === '/';
-  const guardEnabled = useMemo(() => !!currentUser && !isScreensaver, [currentUser, isScreensaver]);
+  // Lógica atualizada para detectar onde estamos
+  const isScreensaver = location.pathname === "/";
+  const isKitchen = location.pathname.startsWith("/cozinha");
+  const isAdmin = location.pathname.startsWith("/admin");
+
+  // O guard só deve funcionar se:
+  // 1. Tiver usuário logado
+  // 2. NÃO for a tela inicial
+  // 3. NÃO for a cozinha
+  // 4. NÃO for o admin
+  const guardEnabled = useMemo(
+    () => !!currentUser && !isScreensaver && !isKitchen && !isAdmin,
+    [currentUser, isScreensaver, isKitchen, isAdmin]
+  );
 
   const clearInactivityTimer = () => {
     if (inactivityTimerRef.current) {
@@ -44,15 +62,19 @@ const InactivityGuard: React.FC = () => {
       // Start countdown
       clearCountdownTimer();
       countdownTimerRef.current = window.setInterval(() => {
-        setCountdown(prev => {
+        setCountdown((prev) => {
           if (prev <= 1) {
             // time's up -> logout and go to screensaver
             clearCountdownTimer();
             setShowPrompt(false);
             // Logout and cleanup
             logout();
-            try { clearCart(); } catch { /* ignore */ }
-            navigate('/', { replace: true });
+            try {
+              clearCart();
+            } catch {
+              /* ignore */
+            }
+            navigate("/", { replace: true });
             return 0;
           }
           return prev - 1;
@@ -86,12 +108,20 @@ const InactivityGuard: React.FC = () => {
     // Start first timer when guard enabled
     startInactivityTimer();
 
-    const events: (keyof WindowEventMap)[] = ['click', 'keydown', 'mousemove', 'touchstart', 'wheel'];
+    const events: (keyof WindowEventMap)[] = [
+      "click",
+      "keydown",
+      "mousemove",
+      "touchstart",
+      "wheel",
+    ];
     const handler = () => resetActivity();
-    events.forEach(evt => window.addEventListener(evt, handler, { passive: true } as any));
+    events.forEach((evt) =>
+      window.addEventListener(evt, handler, { passive: true } as any)
+    );
 
     return () => {
-      events.forEach(evt => window.removeEventListener(evt, handler as any));
+      events.forEach((evt) => window.removeEventListener(evt, handler as any));
       clearInactivityTimer();
       clearCountdownTimer();
     };
@@ -105,7 +135,9 @@ const InactivityGuard: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-[90vw] max-w-sm text-center">
             <div className="text-2xl font-semibold mb-2">Ainda está aí?</div>
-            <div className="text-stone-600 mb-4">Voltaremos ao início em {countdown}s se não houver interação.</div>
+            <div className="text-stone-600 mb-4">
+              Voltaremos ao início em {countdown}s se não houver interação.
+            </div>
             <button
               onClick={resetActivity}
               className="px-4 py-2 rounded-md bg-stone-900 text-white hover:bg-stone-800"

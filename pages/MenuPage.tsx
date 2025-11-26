@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useAuth } from "../contexts/AuthContext"; // Corrigido para caminho relativo
-import { useCart } from "../contexts/CartContext"; // Corrigido para caminho relativo
+import { useNavigate } from "react-router-dom"; // Importando useNavigate
+import { useAuth } from "../contexts/AuthContext";
+import { useCart } from "../contexts/CartContext";
 import {
   getMenuSuggestion,
   getDynamicCartSuggestion,
   getChefMessage,
 } from "../services/geminiService";
-import type { Product, CartItem, Order } from "../types";
+import type { Product, CartItem } from "../types";
 
 // Usamos uma URL fixa (ou VITE_API_URL, se estiver no service)
-// para a requisição de checkout, garantindo que a URL correta seja usada
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 // --- Componentes auxiliares definidos fora para evitar re-renderizações ---
@@ -190,7 +190,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
               disabled={isPlacingOrder}
               className="w-full mt-4 bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300 disabled:cursor-wait"
             >
-              {isPlacingOrder ? "Enviando Pedido..." : "Finalizar Pedido"}
+              {isPlacingOrder ? "Carregando..." : "Ir para Pagamento"}
             </button>
           </div>
         </>
@@ -280,20 +280,16 @@ const MenuPage: React.FC = () => {
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
-  const [orderConfirmationMessage, setOrderConfirmationMessage] = useState<
-    string | null
-  >(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
 
-  const { currentUser, addOrderToHistory } = useAuth();
-  const { cartItems, addToCart, clearCart, cartTotal, updateQuantity } =
-    useCart();
+  const { currentUser } = useAuth();
+  const { cartItems, addToCart, cartTotal, updateQuantity } = useCart();
+  const navigate = useNavigate(); // Hook de navegação
 
-  // NOVO: Função para buscar o menu do backend (DB)
+  // Função para buscar o menu do backend (DB)
   const fetchMenuData = async () => {
     try {
-      // Nova rota do backend para buscar os produtos no DB
       const response = await fetch(`${BACKEND_URL}/api/menu`);
       const data: Product[] = await response.json();
       setMenu(data);
@@ -310,8 +306,6 @@ const MenuPage: React.FC = () => {
   // UseEffect para Sugestão do Menu (Recomendação IA)
   useEffect(() => {
     const fetchSuggestion = async () => {
-      // O chef message já é feito em outro useEffect, este é para sugestões de venda
-      // A sugestão do menu só faz sentido se o usuário estiver logado ou se for um convidado
       if (currentUser) {
         setIsSuggestionLoading(true);
         const newSuggestion = await getMenuSuggestion(
@@ -369,53 +363,16 @@ const MenuPage: React.FC = () => {
     fetchCartSuggestion();
   }, [cartItems, menu, currentUser?.name]);
 
-  const handleCheckout = async () => {
+  // Lógica de checkout alterada para redirecionar para a página de pagamento
+  const handleCheckout = () => {
     if (!currentUser || cartItems.length === 0) return;
-    setIsPlacingOrder(true);
-
-    const payload = {
-      userId: currentUser.id,
-      userName: currentUser.name,
-      items: cartItems.map((item) => ({
-        productId: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      total: cartTotal,
-    };
-
-    try {
-      // POST para a nova rota de pedidos do backend (que usa o DB)
-      const resp = await fetch(`${BACKEND_URL}/api/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) throw new Error("Falha ao enviar pedido");
-
-      const saved: Order = await resp.json();
-
-      // Atualiza o histórico local (no contexto/localStorage) com a nova order
-      addOrderToHistory(saved);
-
-      setOrderConfirmationMessage("Pedido realizado com sucesso!");
-      setTimeout(() => setOrderConfirmationMessage(null), 4000);
-      clearCart();
-    } catch (err) {
-      console.error(err);
-      setOrderConfirmationMessage("Erro ao enviar pedido. Tente novamente.");
-      setTimeout(() => setOrderConfirmationMessage(null), 5000);
-    } finally {
-      setIsPlacingOrder(false);
-      setIsMobileCartOpen(false);
-    }
+    // Em vez de chamar API diretamente, navegamos para a tela de pagamento
+    navigate("/payment");
   };
 
   // Memoiza a lista de produtos categorizados para evitar recalcular a cada render
   const categorizedMenu = useMemo(() => {
     return menu.reduce((acc, product) => {
-      // Adiciona verificação para garantir que category é um tipo válido
       const categoryKey = product.category as Product["category"];
       if (!acc[categoryKey]) {
         acc[categoryKey] = [];
@@ -427,26 +384,6 @@ const MenuPage: React.FC = () => {
 
   return (
     <>
-      {orderConfirmationMessage && (
-        <div className="fixed top-20 right-8 bg-green-600 text-white py-3 px-6 rounded-lg shadow-lg z-50 animate-fade-in-down flex items-center gap-3">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <p className="font-semibold">{orderConfirmationMessage}</p>
-        </div>
-      )}
-
       <div className="container mx-auto flex flex-col md:flex-row gap-8 md:mb-40">
         {/* Sidebar de Categorias - Desktop */}
         <CategorySidebar
