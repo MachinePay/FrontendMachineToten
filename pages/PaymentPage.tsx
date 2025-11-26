@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
+import { clearPaymentQueue } from "../services/pointService";
 import type { Order } from "../types";
 
 // URL do Backend
@@ -31,7 +32,19 @@ const PaymentPage: React.FC = () => {
   }, [cartItems, navigate, status]);
 
   const handlePayment = async () => {
-    if (!paymentMethod || !currentUser) return;
+    // ⚠️ VALIDAÇÃO CRÍTICA: NUNCA enviar pagamento sem método
+    if (!paymentMethod) {
+      console.error('❌ Método de pagamento não especificado!');
+      setErrorMessage('Por favor, selecione a forma de pagamento (PIX, Débito ou Crédito)');
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 3000);
+      return;
+    }
+    
+    if (!currentUser) {
+      console.error('❌ Usuário não autenticado!');
+      return;
+    }
 
     setStatus("processing");
     setPaymentStatusMessage("Iniciando conexão com a maquininha...");
@@ -91,19 +104,11 @@ const PaymentPage: React.FC = () => {
       // 3. LIMPAR FILA DA MAQUININHA (Point Pro 2)
       // Garante que o botão verde não voltará ao pagamento anterior
       setPaymentStatusMessage("Liberando maquininha...");
-      try {
-        const clearResp = await fetch(`${BACKEND_URL}/api/payment/clear-queue`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        
-        if (clearResp.ok) {
-          const clearData = await clearResp.json();
-          console.log(`✅ Fila limpa: ${clearData.cleared} pagamento(s) removido(s)`);
-        }
-      } catch (clearError) {
-        console.warn("⚠️ Aviso ao limpar fila:", clearError);
-        // Não bloqueia o fluxo se falhar
+      const clearResult = await clearPaymentQueue();
+      
+      if (!clearResult.success) {
+        console.warn("⚠️ Aviso: Não foi possível limpar a fila completamente");
+        // Não bloqueia o fluxo - pagamento já foi aprovado
       }
 
       // 4. Se aprovou, salva o pedido no banco de dados

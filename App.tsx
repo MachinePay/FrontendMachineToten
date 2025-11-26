@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   HashRouter,
   Routes,
@@ -20,6 +20,7 @@ import ScreensaverPage from "./pages/ScreensaverPage";
 import Header from "./components/Header";
 import Chatbot from "./components/Chatbot";
 import InactivityGuard from "./components/InactivityGuard";
+import { configurePoint, checkPointStatus } from "./services/pointService";
 import type { UserRole } from "./types";
 
 // Proteção de rota para clientes (customer)
@@ -61,6 +62,33 @@ const RoleProtectedRoute: React.FC<{
 };
 
 const App: React.FC = () => {
+  // Configurar Point Smart 2 na inicialização do sistema
+  useEffect(() => {
+    const initializePoint = async () => {
+      console.log('🚀 Inicializando Point Smart 2...');
+      
+      // 1. Configurar Point em modo PDV (bloqueia menu da maquininha)
+      const configResult = await configurePoint();
+      
+      // 2. Verificar status da conexão (opcional, para debug)
+      if (configResult.success) {
+        const statusResult = await checkPointStatus();
+        
+        if (statusResult.connected) {
+          console.log('✅ Sistema pronto para receber pagamentos');
+          console.log(`📱 Dispositivo: ${statusResult.model || 'Point Smart 2'}`);
+          console.log(`⚙️ Modo: ${statusResult.operating_mode || 'PDV'}`);
+        }
+      } else {
+        console.warn('⚠️ Point não disponível - pagamentos podem não funcionar');
+        console.warn('💡 Verifique se a maquininha está ligada e conectada');
+      }
+    };
+    
+    // Executa inicialização ao iniciar o sistema
+    initializePoint();
+  }, []);
+
   return (
     <AuthProvider>
       <CartProvider>
