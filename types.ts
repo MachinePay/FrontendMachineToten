@@ -20,6 +20,7 @@ export interface Product {
   imageUrl?: string;
   videoUrl: string;
   popular?: boolean;
+  stock?: number;
 }
 
 export interface OrderItem {

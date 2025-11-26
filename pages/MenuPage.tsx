@@ -24,51 +24,82 @@ const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onAddToCart,
   quantityInCart = 0,
-}) => (
-  <div className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 flex flex-col">
-    <video
-      className="w-full h-40 object-cover"
-      autoPlay
-      muted
-      loop
-      playsInline
-      onClick={(e) => {
-        e.preventDefault();
-        (e.currentTarget as HTMLVideoElement).play().catch(() => {});
-      }}
-      onPause={(e) => {
-        (e.currentTarget as HTMLVideoElement).play().catch(() => {});
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <source src={product.videoUrl} type="video/mp4" />
-    </video>
-    <div className="p-4 flex flex-col flex-grow">
-      <h3 className="font-bold text-lg text-amber-800">{product.name}</h3>
-      <p className="text-stone-600 text-sm mt-1 flex-grow">
-        {product.description}
-      </p>
-      <div className="flex justify-between items-center mt-4">
-        <span className="text-xl font-semibold text-stone-800">
-          R${product.price.toFixed(2)}
-        </span>
-        <div className="flex items-center gap-2">
-          {quantityInCart > 0 && (
-            <span className="bg-amber-100 text-amber-800 font-bold px-3 py-1 rounded-full text-sm">
-              {quantityInCart} no carrinho
+}) => {
+  const isOutOfStock = (product.stock ?? 0) === 0;
+  const isLowStock = (product.stock ?? 0) > 0 && (product.stock ?? 0) < 10;
+  
+  return (
+    <div className={`bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 flex flex-col relative ${
+      isOutOfStock ? 'opacity-60' : ''
+    }`}>
+      {/* Badge de ESGOTADO */}
+      {isOutOfStock && (
+        <div className="absolute top-2 right-2 z-10 bg-red-600 text-white font-bold px-3 py-1 rounded-full text-sm shadow-lg">
+          ESGOTADO
+        </div>
+      )}
+      {/* Badge de estoque baixo */}
+      {isLowStock && (
+        <div className="absolute top-2 right-2 z-10 bg-yellow-500 text-white font-bold px-3 py-1 rounded-full text-xs shadow-lg">
+          Últimas {product.stock} un.
+        </div>
+      )}
+      <video
+        className="w-full h-40 object-cover"
+        autoPlay
+        muted
+        loop
+        playsInline
+        onClick={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+        }}
+        onPause={(e) => {
+          (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+        }}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <source src={product.videoUrl} type="video/mp4" />
+      </video>
+      <div className="p-4 flex flex-col flex-grow">
+        <h3 className="font-bold text-lg text-amber-800">{product.name}</h3>
+        <p className="text-stone-600 text-sm mt-1 flex-grow">
+          {product.description}
+        </p>
+        <div className="flex justify-between items-center mt-4">
+          <div className="flex flex-col">
+            <span className="text-xl font-semibold text-stone-800">
+              R${product.price.toFixed(2)}
             </span>
-          )}
-          <button
-            onClick={() => onAddToCart(product)}
-            className="bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors"
-          >
-            Adicionar
-          </button>
+            {!isOutOfStock && (product.stock ?? 0) < 50 && (
+              <span className="text-xs text-stone-500 mt-1">
+                Estoque: {product.stock} un.
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {quantityInCart > 0 && (
+              <span className="bg-amber-100 text-amber-800 font-bold px-3 py-1 rounded-full text-sm">
+                {quantityInCart} no carrinho
+              </span>
+            )}
+            <button
+              onClick={() => onAddToCart(product)}
+              disabled={isOutOfStock}
+              className={`font-bold py-2 px-4 rounded-lg transition-colors ${
+                isOutOfStock 
+                  ? 'bg-stone-300 text-stone-500 cursor-not-allowed' 
+                  : 'bg-amber-500 text-white hover:bg-amber-600'
+              }`}
+            >
+              {isOutOfStock ? 'Indisponível' : 'Adicionar'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // CartSidebar atualizado para suportar modo mobile drawer
 interface CartSidebarProps {

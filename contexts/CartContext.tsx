@@ -35,14 +35,26 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
 
   /*
     Adiciona um produto ao carrinho.
-    - Se o produto já existir (mesmo id), incrementa a quantidade em 1.
+    - Valida se o produto tem estoque disponível (stock > 0)
+    - Se o produto já existir (mesmo id), incrementa a quantidade em 1 (se houver estoque)
     - Caso contrário, adiciona o produto com quantity = 1.
     Usa a função de atualização baseada no estado anterior para evitar condições de corrida.
   */
   const addToCart = (product: Product) => {
+    // Validação de estoque
+    if ((product.stock ?? 0) === 0) {
+      alert('Produto esgotado!');
+      return;
+    }
+    
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
+        // Verifica se a quantidade no carrinho já atingiu o estoque disponível
+        if (product.stock !== undefined && existingItem.quantity >= product.stock) {
+          alert(`Estoque limitado! Máximo de ${product.stock} unidades disponíveis.`);
+          return prevItems;
+        }
         return prevItems.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }

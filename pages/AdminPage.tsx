@@ -22,6 +22,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onSave, onCancel }) 
         description: '',
         price: 0,
         category: 'Pastel',
+        videoUrl: '',
+        stock: 0,
     });
 
     // Quando o prop `product` muda (por ex. abrir para editar), preenche o formulário.
@@ -30,15 +32,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onSave, onCancel }) 
             setFormData(product); // preenche com dados existentes
         } else {
             // limpa para novo produto
-            setFormData({ name: '', description: '', price: 0, category: 'Pastel' });
+            setFormData({ name: '', description: '', price: 0, category: 'Pastel', videoUrl: '', stock: 0 });
         }
     }, [product]);
 
     // Atualiza campos do formulário. Convertendo price para número quando necessário.
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        // Se for o campo 'price', converte para float; caso contrário mantém string.
-        setFormData(prev => ({ ...prev, [name]: name === 'price' ? parseFloat(value) : value }));
+        // Se for o campo 'price' ou 'stock', converte para número; caso contrário mantém string.
+        setFormData(prev => ({ ...prev, [name]: name === 'price' ? parseFloat(value) : name === 'stock' ? parseInt(value) : value }));
     };
 
     // Ao submeter, cria um objeto Product final e chama onSave.
@@ -46,10 +48,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onSave, onCancel }) 
         e.preventDefault();
         const finalProduct: Product = {
             ...formData,
-            // Se já houver id (edição) usa-o, senão gera um id simples baseado em timestamp.
-            id: formData.id || `prod_${Date.now()}`,
-            // Aqui não fazemos upload de imagem; usamos um placeholder.
+            // Se já houver id (edição) usa-o, senão o backend gerará um novo
+            id: formData.id || '',
+            // Placeholder para imagem (backend pode adicionar lógica de upload futuramente)
             imageUrl: formData.id ? (product?.imageUrl || 'https://picsum.photos/400/300') : 'https://picsum.photos/400/300',
+            // videoUrl padrão se não fornecido
+            videoUrl: formData.videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4',
         };
         onSave(finalProduct); // informa o componente pai sobre o produto salvo
     };
@@ -87,6 +91,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onSave, onCancel }) 
                              </select>
                         </div>
                      </div>
+                     <div>
+                        <label htmlFor="videoUrl" className="block text-sm font-medium text-stone-700">URL do Vídeo</label>
+                        {/* Campo URL do vídeo */}
+                        <input type="url" name="videoUrl" id="videoUrl" value={formData.videoUrl || ''} onChange={handleChange} placeholder="https://exemplo.com/video.mp4" className="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"/>
+                        <p className="mt-1 text-xs text-stone-500">URL do vídeo do produto (opcional)</p>
+                     </div>
+                     <div>
+                        <label htmlFor="stock" className="block text-sm font-medium text-stone-700">Estoque</label>
+                        {/* Campo estoque (numérico) */}
+                        <input type="number" name="stock" id="stock" value={formData.stock || 0} onChange={handleChange} required min="0" className="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"/>
+                        <p className="mt-1 text-xs text-stone-500">Quantidade disponível em estoque</p>
+                     </div>
                     <div className="flex justify-end gap-4 pt-4">
                         {/* Botão cancelar fecha o modal sem salvar */}
                         <button type="button" onClick={onCancel} className="bg-stone-200 text-stone-800 font-semibold py-2 px-4 rounded-lg hover:bg-stone-300">Cancelar</button>
@@ -118,27 +134,74 @@ const AdminPage: React.FC = () => {
     }, []);
 
     // Trata salvar (tanto criação quanto edição)
-    const handleSaveProduct = (product: Product) => {
-        if (editingProduct) {
-            // Se estivermos editando, substitui o produto existente
-            setMenu(menu.map(p => p.id === product.id ? product : p));
-            console.log("Updating product:", product);
-        } else {
-            // Se for novo, adiciona no final da lista
-            setMenu([...menu, product]);
-            console.log("Adding product:", product);
+    const handleSaveProduct = async (product: Product) => {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        
+        try {
+            if (editingProduct) {
+                // PUT para edição
+                const response = await fetch(`${API_URL}/api/products/${product.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(product),
+                });
+                
+                if (response.ok) {
+                    const updatedProduct = await response.json();
+                    setMenu(menu.map(p => p.id === product.id ? updatedProduct : p));
+                    console.log("Produto atualizado:", updatedProduct);
+                } else {
+                    alert('Erro ao atualizar produto');
+                    return;
+                }
+            } else {
+                // POST para criação
+                const response = await fetch(`${API_URL}/api/products`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(product),
+                });
+                
+                if (response.ok) {
+                    const newProduct = await response.json();
+                    setMenu([...menu, newProduct]);
+                    console.log("Produto criado:", newProduct);
+                } else {
+                    alert('Erro ao criar produto');
+                    return;
+                }
+            }
+            
+            // Fecha o modal e reseta o estado de edição
+            setIsFormOpen(false);
+            setEditingProduct(null);
+        } catch (error) {
+            console.error('Erro ao salvar produto:', error);
+            alert('Erro ao salvar produto');
         }
-        // Fecha o modal e reseta o estado de edição
-        setIsFormOpen(false);
-        setEditingProduct(null);
     };
 
-    // Remove um produto pela id (simula DELETE /cardapio/:id)
-    const handleDeleteProduct = (productId: string) => {
+    // Remove um produto pela id via API
+    const handleDeleteProduct = async (productId: string) => {
         // Confirmação simples antes de remover
         if(window.confirm("Tem certeza que deseja remover este produto?")){
-            setMenu(menu.filter(p => p.id !== productId));
-            console.log("Deleting product with ID:", productId);
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/products/${productId}`, {
+                    method: 'DELETE',
+                });
+                
+                if (response.ok) {
+                    setMenu(menu.filter(p => p.id !== productId));
+                    console.log("Produto deletado:", productId);
+                } else {
+                    alert('Erro ao deletar produto');
+                }
+            } catch (error) {
+                console.error('Erro ao deletar produto:', error);
+                alert('Erro ao deletar produto');
+            }
         }
     };
     
@@ -171,6 +234,7 @@ const AdminPage: React.FC = () => {
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Produto</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Categoria</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Preço</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Estoque</th>
                             <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
                         </tr>
                     </thead>
@@ -197,6 +261,16 @@ const AdminPage: React.FC = () => {
                                 </td>
                                 {/* Preço formatado com duas casas decimais */}
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-900">R${product.price.toFixed(2)}</td>
+                                {/* Estoque com badge colorido */}
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        (product.stock || 0) === 0 ? 'bg-red-100 text-red-800' : 
+                                        (product.stock || 0) < 10 ? 'bg-yellow-100 text-yellow-800' : 
+                                        'bg-green-100 text-green-800'
+                                    }`}>
+                                        {product.stock || 0} un.
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     {/* Botões de ação: editar abre o modal preenchido */}
                                     <button onClick={() => { setEditingProduct(product); setIsFormOpen(true); }} className="text-amber-600 hover:text-amber-900 mr-4">Editar</button>
