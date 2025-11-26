@@ -45,6 +45,7 @@ const PaymentPage: React.FC = () => {
           amount: cartTotal,
           description: `Pedido de ${currentUser.name}`,
           orderId: `temp_${Date.now()}`, // ID temporário
+          paymentMethod: paymentMethod, // Envia método escolhido (credit, debit, pix)
         }),
       });
 
@@ -87,7 +88,25 @@ const PaymentPage: React.FC = () => {
         throw new Error("Tempo esgotado ou pagamento não identificado.");
       }
 
-      // 3. Se aprovou, salva o pedido no banco de dados
+      // 3. LIMPAR FILA DA MAQUININHA (Point Pro 2)
+      // Garante que o botão verde não voltará ao pagamento anterior
+      setPaymentStatusMessage("Liberando maquininha...");
+      try {
+        const clearResp = await fetch(`${BACKEND_URL}/api/payment/clear-queue`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        
+        if (clearResp.ok) {
+          const clearData = await clearResp.json();
+          console.log(`✅ Fila limpa: ${clearData.cleared} pagamento(s) removido(s)`);
+        }
+      } catch (clearError) {
+        console.warn("⚠️ Aviso ao limpar fila:", clearError);
+        // Não bloqueia o fluxo se falhar
+      }
+
+      // 4. Se aprovou, salva o pedido no banco de dados
       const payload = {
         userId: currentUser.id,
         userName: currentUser.name,
@@ -113,12 +132,12 @@ const PaymentPage: React.FC = () => {
 
       const savedOrder: Order = await saveResp.json();
 
-      // 4. Sucesso Final
+      // 5. Sucesso Final
       addOrderToHistory(savedOrder);
       setStatus("success");
       clearCart();
 
-      // 5. Redirecionar após 5 segundos e fazer logout
+      // 6. Redirecionar após 5 segundos e fazer logout
       setTimeout(() => {
         logout(); // Faz logout do usuário
         navigate("/", { replace: true }); // Vai para o screensaver/início
