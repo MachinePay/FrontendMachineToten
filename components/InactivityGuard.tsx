@@ -28,15 +28,17 @@ const InactivityGuard: React.FC = () => {
   const isScreensaver = location.pathname === "/";
   const isKitchen = location.pathname.startsWith("/cozinha");
   const isAdmin = location.pathname.startsWith("/admin");
+  const isPayment = location.pathname === "/payment";
 
   // O guard só deve funcionar se:
   // 1. Tiver usuário logado
   // 2. NÃO for a tela inicial
   // 3. NÃO for a cozinha
   // 4. NÃO for o admin
+  // 5. NÃO for a tela de pagamento
   const guardEnabled = useMemo(
-    () => !!currentUser && !isScreensaver && !isKitchen && !isAdmin,
-    [currentUser, isScreensaver, isKitchen, isAdmin]
+    () => !!currentUser && !isScreensaver && !isKitchen && !isAdmin && !isPayment,
+    [currentUser, isScreensaver, isKitchen, isAdmin, isPayment]
   );
 
   const clearInactivityTimer = () => {

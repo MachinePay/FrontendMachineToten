@@ -124,14 +124,70 @@ const AdminPage: React.FC = () => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     // Produto atual sendo editado (ou null para criar novo)
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    // Estados para análise de IA
+    const [aiAnalysis, setAiAnalysis] = useState<string>('');
+    const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+    const [showAnalysis, setShowAnalysis] = useState(false);
+    // Estados para estatísticas
+    const [stats, setStats] = useState({
+        totalProducts: 0,
+        totalOrders: 0,
+        lowStock: 0,
+        outOfStock: 0
+    });
 
     // Carrega os dados iniciais do backend
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/menu`)
-            .then(res => res.json())
-            .then(data => setMenu(data))
-            .catch(err => console.error('Erro ao carregar cardápio:', err));
+        loadProducts();
     }, []);
+
+    const loadProducts = async () => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/menu`);
+            const data = await res.json();
+            setMenu(data);
+            
+            // Calcula estatísticas
+            setStats({
+                totalProducts: data.length,
+                totalOrders: 0, // Será atualizado pela análise de IA
+                lowStock: data.filter((p: Product) => p.stock !== null && p.stock > 0 && p.stock <= 5).length,
+                outOfStock: data.filter((p: Product) => p.stock === 0).length
+            });
+        } catch (err) {
+            console.error('Erro ao carregar cardápio:', err);
+        }
+    };
+
+    // Gerar análise de IA
+    const handleGenerateAnalysis = async () => {
+        setIsLoadingAnalysis(true);
+        setShowAnalysis(true);
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        
+        try {
+            const response = await fetch(`${API_URL}/api/ai/inventory-analysis`);
+            const data = await response.json();
+            
+            if (data.success) {
+                setAiAnalysis(data.analysis);
+                // Atualiza estatísticas com dados do backend
+                if (data.summary) {
+                    setStats(prev => ({
+                        ...prev,
+                        totalOrders: data.summary.totalOrders || 0
+                    }));
+                }
+            } else {
+                setAiAnalysis('❌ Erro ao gerar análise: ' + (data.error || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            console.error('Erro ao gerar análise:', error);
+            setAiAnalysis('❌ Erro ao comunicar com o servidor. Verifique se a API está disponível.');
+        } finally {
+            setIsLoadingAnalysis(false);
+        }
+    };
 
     // Trata salvar (tanto criação quanto edição)
     const handleSaveProduct = async (product: Product) => {
@@ -147,9 +203,8 @@ const AdminPage: React.FC = () => {
                 });
                 
                 if (response.ok) {
-                    const updatedProduct = await response.json();
-                    setMenu(menu.map(p => p.id === product.id ? updatedProduct : p));
-                    console.log("Produto atualizado:", updatedProduct);
+                    console.log("Produto atualizado");
+                    await loadProducts(); // Recarrega lista
                 } else {
                     alert('Erro ao atualizar produto');
                     return;
@@ -163,9 +218,8 @@ const AdminPage: React.FC = () => {
                 });
                 
                 if (response.ok) {
-                    const newProduct = await response.json();
-                    setMenu([...menu, newProduct]);
-                    console.log("Produto criado:", newProduct);
+                    console.log("Produto criado");
+                    await loadProducts(); // Recarrega lista
                 } else {
                     alert('Erro ao criar produto');
                     return;
@@ -193,8 +247,8 @@ const AdminPage: React.FC = () => {
                 });
                 
                 if (response.ok) {
-                    setMenu(menu.filter(p => p.id !== productId));
                     console.log("Produto deletado:", productId);
+                    await loadProducts(); // Recarrega lista
                 } else {
                     alert('Erro ao deletar produto');
                 }
@@ -206,15 +260,74 @@ const AdminPage: React.FC = () => {
     };
     
     return (
-        <div className="container mx-auto">
-            {/* Cabeçalho com título e botão de adicionar */}
-            <div className="flex justify-between items-center mb-8">
-                <h1 className="text-4xl font-bold text-amber-800">Gerenciar Cardápio</h1>
-                {/* Ao clicar, abre o modal em modo criar (editingProduct = null) */}
-                <button onClick={() => { setEditingProduct(null); setIsFormOpen(true); }} className="bg-amber-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-600 transition-colors shadow-md">
-                    Adicionar Produto
-                </button>
+        <div className="container mx-auto p-6">
+            {/* Cabeçalho */}
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-4xl font-bold text-amber-800">Painel Administrativo</h1>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={handleGenerateAnalysis}
+                        disabled={isLoadingAnalysis}
+                        className="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition-colors shadow-md disabled:bg-purple-300 flex items-center gap-2"
+                    >
+                        {isLoadingAnalysis ? '⏳ Analisando...' : '🤖 Análise com IA'}
+                    </button>
+                    <button 
+                        onClick={() => { setEditingProduct(null); setIsFormOpen(true); }} 
+                        className="bg-amber-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-600 transition-colors shadow-md"
+                    >
+                        + Adicionar Produto
+                    </button>
+                </div>
             </div>
+
+            {/* Cards de Estatísticas */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+                    <div className="text-sm text-stone-500 mb-1">Total de Produtos</div>
+                    <div className="text-3xl font-bold text-blue-600">{stats.totalProducts}</div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                    <div className="text-sm text-stone-500 mb-1">Pedidos (30 dias)</div>
+                    <div className="text-3xl font-bold text-green-600">{stats.totalOrders}</div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
+                    <div className="text-sm text-stone-500 mb-1">Estoque Baixo</div>
+                    <div className="text-3xl font-bold text-yellow-600">{stats.lowStock}</div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500">
+                    <div className="text-sm text-stone-500 mb-1">Esgotados</div>
+                    <div className="text-3xl font-bold text-red-600">{stats.outOfStock}</div>
+                </div>
+            </div>
+
+            {/* Área de Análise da IA */}
+            {showAnalysis && (
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-xl shadow-lg mb-6 border border-purple-200">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-bold text-purple-800 flex items-center gap-2">
+                            🤖 Análise Inteligente de Estoque
+                        </h2>
+                        <button 
+                            onClick={() => setShowAnalysis(false)}
+                            className="text-stone-500 hover:text-stone-700"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    {isLoadingAnalysis ? (
+                        <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                        </div>
+                    ) : (
+                        <div className="prose max-w-none">
+                            <pre className="whitespace-pre-wrap font-sans text-stone-700 leading-relaxed">
+                                {aiAnalysis}
+                            </pre>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Renderiza o formulário/modal condicionalmente */}
              {isFormOpen && (
@@ -225,6 +338,9 @@ const AdminPage: React.FC = () => {
                 />
             )}
 
+            {/* Seção de Gerenciamento de Produtos */}
+            <h2 className="text-2xl font-bold text-stone-800 mb-4">📦 Gerenciar Produtos</h2>
+            
             {/* Tabela que lista os produtos */}
             <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
                 <table className="min-w-full divide-y divide-stone-200">

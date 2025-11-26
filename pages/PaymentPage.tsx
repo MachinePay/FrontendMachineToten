@@ -9,7 +9,7 @@ const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const PaymentPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
-  const { currentUser, addOrderToHistory } = useAuth();
+  const { currentUser, addOrderToHistory, logout } = useAuth();
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<
@@ -118,9 +118,10 @@ const PaymentPage: React.FC = () => {
       setStatus("success");
       clearCart();
 
-      // 5. Redirecionar após 5 segundos
+      // 5. Redirecionar após 5 segundos e fazer logout
       setTimeout(() => {
-        navigate("/"); // Vai para o screensaver/início
+        logout(); // Faz logout do usuário
+        navigate("/", { replace: true }); // Vai para o screensaver/início
       }, 5000);
     } catch (err: any) {
       console.error(err);
