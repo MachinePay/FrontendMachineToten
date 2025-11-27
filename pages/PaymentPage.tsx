@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from 'sweetalert2';
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
 import { clearPaymentQueue } from "../services/pointService";
@@ -37,11 +38,19 @@ const PaymentPage: React.FC = () => {
   const handleCancelPayment = async () => {
     if (!activePaymentId.current) return;
 
-    const confirmCancel = window.confirm(
-      '⚠️ Tem certeza que deseja cancelar este pagamento?'
-    );
+    const result = await Swal.fire({
+      title: '⚠️ Cancelar Pagamento?',
+      text: 'Tem certeza que deseja cancelar este pagamento?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sim, cancelar',
+      cancelButtonText: 'Não',
+      reverseButtons: true
+    });
 
-    if (!confirmCancel) return;
+    if (!result.isConfirmed) return;
 
     try {
       console.log(`🚫 Cancelando pagamento: ${activePaymentId.current}`);
@@ -57,6 +66,13 @@ const PaymentPage: React.FC = () => {
 
       if (response.ok) {
         console.log('✅ Pagamento cancelado com sucesso');
+        await Swal.fire({
+          title: 'Cancelado!',
+          text: 'O pagamento foi cancelado com sucesso.',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        });
       }
 
       // Limpa estados
@@ -70,7 +86,12 @@ const PaymentPage: React.FC = () => {
 
     } catch (error) {
       console.error('❌ Erro ao cancelar pagamento:', error);
-      alert('Erro ao cancelar pagamento. Tente novamente.');
+      await Swal.fire({
+        title: 'Erro!',
+        text: 'Erro ao cancelar pagamento. Tente novamente.',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
     }
   };
 

@@ -1,6 +1,7 @@
 // Importa React e componentes de roteamento do react-router-dom
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 // Importa o contexto de autenticação personalizado
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -19,11 +20,19 @@ const Header: React.FC = () => {
     const isOnPaymentPage = window.location.hash.includes('/payment');
     
     if (isOnPaymentPage) {
-      const confirmLogout = window.confirm(
-        '⚠️ Você está na tela de pagamento!\n\nSe houver um pagamento em andamento, ele será cancelado automaticamente.\n\nDeseja continuar?'
-      );
+      const result = await Swal.fire({
+        title: '⚠️ Você está na tela de pagamento!',
+        html: 'Se houver um pagamento em andamento, ele será <strong>cancelado automaticamente</strong>.<br><br>Deseja continuar?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sim, sair',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true
+      });
       
-      if (!confirmLogout) {
+      if (!result.isConfirmed) {
         return; // Cancela o logout
       }
     }
