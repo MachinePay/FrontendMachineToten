@@ -99,18 +99,45 @@ const PaymentPage: React.FC = () => {
   // 🎯 FUNÇÃO PARA PAGAMENTO PIX (QR Code)
   const handlePixPayment = async () => {
     setStatus("processing");
-    setPaymentStatusMessage("Gerando QR Code PIX...");
+    setPaymentStatusMessage("Criando pedido...");
     shouldCancelPolling.current = false;
 
     try {
-      // 1. Criar pagamento PIX e receber QR Code
+      // 1. PRIMEIRO: Criar pedido (desconta estoque no backend)
+      const orderResp = await fetch(`${BACKEND_URL}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser!.id,
+          userName: currentUser!.name,
+          items: cartItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          total: cartTotal,
+          paymentId: null, // Ainda não temos o paymentId
+        }),
+      });
+
+      if (!orderResp.ok) {
+        throw new Error("Erro ao criar pedido");
+      }
+
+      const orderData = await orderResp.json();
+      const orderId = orderData.id; // ID real: "order_123456789"
+      console.log(`✅ Pedido criado: ${orderId}`);
+
+      // 2. DEPOIS: Criar pagamento PIX com orderId real
+      setPaymentStatusMessage("Gerando QR Code PIX...");
       const createResp = await fetch(`${BACKEND_URL}/api/pix/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: cartTotal,
           description: `Pedido de ${currentUser!.name}`,
-          orderId: `temp_${Date.now()}`,
+          orderId: orderId, // USA O ID DO PEDIDO CRIADO
         }),
       });
 
@@ -160,10 +187,26 @@ const PaymentPage: React.FC = () => {
         throw new Error("Tempo esgotado. PIX não foi pago.");
       }
 
-      // 5. Salvar pedido aprovado
+      // 5. Atualizar pedido com paymentId
+      await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId: pixData.paymentId, paymentStatus: "paid" }),
+      });
+
+      // 6. Sucesso - adicionar ao histórico e limpar carrinho
       activePaymentId.current = null;
       activePaymentType.current = null;
-      await saveOrder(pixData.paymentId);
+      addOrderToHistory(orderData);
+      setStatus("success");
+      clearCart();
+      setQrCodeBase64(null);
+
+      // Redirecionar após 5 segundos
+      setTimeout(async () => {
+        await logout();
+        navigate("/", { replace: true });
+      }, 5000);
     } catch (err: any) {
       console.error("Erro PIX:", err);
       activePaymentId.current = null;
@@ -178,18 +221,45 @@ const PaymentPage: React.FC = () => {
   // 💳 FUNÇÃO PARA PAGAMENTO COM CARTÃO (Maquininha)
   const handleCardPayment = async () => {
     setStatus("processing");
-    setPaymentStatusMessage("Conectando com a maquininha...");
+    setPaymentStatusMessage("Criando pedido...");
     shouldCancelPolling.current = false;
 
     try {
-      // 1. Criar pagamento na maquininha Point Pro 2
+      // 1. PRIMEIRO: Criar pedido (desconta estoque no backend)
+      const orderResp = await fetch(`${BACKEND_URL}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser!.id,
+          userName: currentUser!.name,
+          items: cartItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          total: cartTotal,
+          paymentId: null,
+        }),
+      });
+
+      if (!orderResp.ok) {
+        throw new Error("Erro ao criar pedido");
+      }
+
+      const orderData = await orderResp.json();
+      const orderId = orderData.id;
+      console.log(`✅ Pedido criado: ${orderId}`);
+
+      // 2. DEPOIS: Criar pagamento na maquininha com orderId real
+      setPaymentStatusMessage("Conectando com a maquininha...");
       const createResp = await fetch(`${BACKEND_URL}/api/payment/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: cartTotal,
           description: `Pedido de ${currentUser!.name}`,
-          orderId: `temp_${Date.now()}`,
+          orderId: orderId, // USA O ID DO PEDIDO CRIADO
           paymentMethod: paymentMethod, // credit ou debit
         }),
       });
@@ -242,7 +312,14 @@ const PaymentPage: React.FC = () => {
         throw new Error("Tempo esgotado ou pagamento não identificado.");
       }
 
-      // 4. Limpar fila da Point Pro 2
+      // 4. Atualizar pedido com paymentId
+      await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId: paymentData.id, paymentStatus: "paid" }),
+      });
+
+      // 5. Limpar fila da Point Pro 2
       setPaymentStatusMessage("Liberando maquininha...");
       const clearResult = await clearPaymentQueue();
 
@@ -250,10 +327,18 @@ const PaymentPage: React.FC = () => {
         console.warn("⚠️ Aviso: Não foi possível limpar a fila completamente");
       }
 
-      // 5. Salvar pedido aprovado
+      // 6. Sucesso - adicionar ao histórico e limpar carrinho
       activePaymentId.current = null;
       activePaymentType.current = null;
-      await saveOrder(paymentData.id);
+      addOrderToHistory(orderData);
+      setStatus("success");
+      clearCart();
+
+      // Redirecionar após 5 segundos
+      setTimeout(async () => {
+        await logout();
+        navigate("/", { replace: true });
+      }, 5000);
     } catch (err: any) {
       console.error("Erro Cartão:", err);
       activePaymentId.current = null;
@@ -264,45 +349,7 @@ const PaymentPage: React.FC = () => {
     }
   };
 
-  // 💾 FUNÇÃO AUXILIAR: Salvar pedido no banco
-  const saveOrder = async (paymentId: string) => {
-    const payload = {
-      userId: currentUser!.id,
-      userName: currentUser!.name,
-      items: cartItems.map((item) => ({
-        productId: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      total: cartTotal,
-      paymentMethod: paymentMethod!,
-      status: "paid",
-      paymentId: paymentId,
-    };
 
-    const saveResp = await fetch(`${BACKEND_URL}/api/orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!saveResp.ok) throw new Error("Falha ao salvar pedido no sistema");
-
-    const savedOrder: Order = await saveResp.json();
-
-    // Sucesso final
-    addOrderToHistory(savedOrder);
-    setStatus("success");
-    clearCart();
-    setQrCodeBase64(null);
-
-    // Redirecionar após 5 segundos
-    setTimeout(async () => {
-      await logout();
-      navigate("/", { replace: true });
-    }, 5000);
-  };
 
   // 🚀 FUNÇÃO PRINCIPAL: Direciona para PIX ou Cartão
   const handlePayment = async () => {
