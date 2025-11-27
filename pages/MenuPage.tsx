@@ -127,7 +127,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   // classes diferentes para mobile vs desktop
   const containerClass = isMobile
     ? "fixed inset-x-0 bottom-0 top-0 bg-white p-6 rounded-t-2xl shadow-xl z-50 flex flex-col"
-    : "hidden lg:flex w-full lg:w-1/3 xl:w-1/4 bg-white p-6 rounded-2xl shadow-xl lg:relative lg:h-fit lg:sticky lg:top-24 flex flex-col";
+    : "hidden xl:flex w-full xl:w-1/3 2xl:w-1/4 bg-white p-6 rounded-2xl shadow-xl xl:relative xl:h-fit xl:sticky xl:top-24 flex flex-col";
 
   return (
     <div className={containerClass}>
@@ -218,7 +218,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
 }) => {
   const containerClass = isMobile
     ? "fixed inset-x-0 left-0 top-0 bottom-0 w-64 bg-white shadow-lg z-40 flex flex-col p-4"
-    : "hidden lg:flex flex-col w-48 bg-white rounded-2xl shadow-xl p-4 h-fit sticky top-24";
+    : "hidden xl:flex flex-col w-48 bg-white rounded-2xl shadow-xl p-4 h-fit sticky top-24";
 
   return (
     <div className={containerClass}>
@@ -468,7 +468,7 @@ const MenuPage: React.FC = () => {
           )}
         </div>
 
-        {/* Versão desktop do cart (visível apenas em lg+) */}
+        {/* Versão desktop do cart (visível apenas em xl+) */}
         <CartSidebar
           cartItems={cartItems}
           cartTotal={cartTotal}
@@ -480,18 +480,19 @@ const MenuPage: React.FC = () => {
         />
       </div>
 
-      {/* Botões flutuantes mobile - Bolinhas pequenas */}
-      <div className="lg:hidden fixed bottom-6 left-6 z-40 flex flex-col gap-3">
-        {/* Botão Carrinho */}
+      {/* Botões flutuantes mobile - Com texto */}
+      <div className="xl:hidden fixed bottom-6 left-6 z-40 flex flex-col gap-3">
+        {/* Botão Carrinho com texto */}
         <button
-          className="bg-amber-500 text-white p-3 rounded-full shadow-lg hover:bg-amber-600 transition-all flex items-center justify-center w-14 h-14 animate-pulse"
+          className="bg-amber-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-amber-600 transition-all flex items-center gap-2 animate-pulse"
           onClick={() => setIsMobileCartOpen(true)}
           aria-label="Abrir carrinho"
           title="Carrinho"
         >
           <span className="text-2xl">🧺</span>
+          <span className="font-bold text-lg">Carrinho</span>
           {cartItems.length > 0 && (
-            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+            <span className="bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center ml-1">
               {cartItems.length}
             </span>
           )}
@@ -499,12 +500,13 @@ const MenuPage: React.FC = () => {
 
         {/* Botão Categorias */}
         <button
-          className="bg-amber-600 text-white p-3 rounded-full shadow-lg hover:bg-amber-700 transition-all flex items-center justify-center w-14 h-14"
+          className="bg-amber-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-amber-700 transition-all flex items-center gap-2"
           onClick={() => setIsMobileCategoryOpen(!isMobileCategoryOpen)}
           aria-label="Abrir categorias"
           title="Categorias"
         >
           <span className="text-2xl">📋</span>
+          <span className="font-bold text-lg">Menu</span>
         </button>
       </div>
 
@@ -514,7 +516,7 @@ const MenuPage: React.FC = () => {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+            className="fixed inset-0 bg-black/40 z-30 xl:hidden"
             onClick={() => setIsMobileCategoryOpen(false)}
           />
           <CategorySidebar
@@ -534,7 +536,7 @@ const MenuPage: React.FC = () => {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+            className="fixed inset-0 bg-black/40 z-30 xl:hidden"
             onClick={() => setIsMobileCartOpen(false)}
           />
           <CartSidebar
