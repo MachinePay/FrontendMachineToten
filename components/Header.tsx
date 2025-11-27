@@ -3,11 +3,13 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 // Importa o contexto de autenticação personalizado
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 
 // Define o componente Header como um componente funcional React com tipagem TypeScript
 const Header: React.FC = () => {
   // Obtém o usuário atual e a função de logout do contexto de autenticação
   const { currentUser, logout } = useAuth();
+  const { clearCart } = useCart();
   // Hook para navegar entre rotas
   const navigate = useNavigate();
 
@@ -26,6 +28,7 @@ const Header: React.FC = () => {
       }
     }
     
+    clearCart(); // Limpa o carrinho antes de logout
     await logout();
     navigate('/');
   };

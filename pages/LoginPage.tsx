@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useCart } from "../contexts/CartContext";
 import type { User } from "../types";
 
 // --- Componente WelcomeScreen ---
@@ -424,6 +425,7 @@ const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showCPFLogin, setShowCPFLogin] = useState(false);
   const { login, currentUser } = useAuth();
+  const { clearCart } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -465,6 +467,8 @@ const LoginPage: React.FC = () => {
       role: "customer",
     };
 
+    // Limpa o carrinho antes de fazer login
+    clearCart();
     // Seta o usuário como logado (mesmo que seja convidado) para permitir o acesso às rotas protegidas
     login(guestUser);
     // Navegar no próximo tick para garantir que o AuthProvider atualize `currentUser`
@@ -478,6 +482,8 @@ const LoginPage: React.FC = () => {
 
   // Sucesso no login por CPF
   const handleLoginSuccess = (user: User) => {
+    // Limpa o carrinho antes de fazer login
+    clearCart();
     login(user);
     // Limpar nome de convidado quando faz login
     localStorage.removeItem("guestUserName");
