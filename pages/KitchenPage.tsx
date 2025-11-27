@@ -77,7 +77,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onComplete, isPriority, in
           </p>
         </div>
         
-        <span className="font-bold text-lg">R${order.total.toFixed(2)}</span>
+        <span className="font-bold text-lg">R${parseFloat(order.total).toFixed(2)}</span>
       </div>
 
       {/* Lista de itens */}
@@ -85,7 +85,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onComplete, isPriority, in
         {order.items.map((item, idx) => (
           <li key={idx} className="flex justify-between border-b pb-1">
             <span className="font-medium">{item.quantity}x {item.name}</span>
-            <span className="text-stone-600">R${(item.price * item.quantity).toFixed(2)}</span>
+            <span className="text-stone-600">R${(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
           </li>
         ))}
       </ul>
