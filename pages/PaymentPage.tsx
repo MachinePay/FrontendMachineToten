@@ -23,6 +23,10 @@ const PaymentPage: React.FC = () => {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [paymentStatusMessage, setPaymentStatusMessage] = useState("");
+  
+  // Estados específicos para PIX com QR Code
+  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+  const [pixPaymentId, setPixPaymentId] = useState<string | null>(null);
 
   // Se o carrinho estiver vazio, volta para o menu
   useEffect(() => {
@@ -31,34 +35,85 @@ const PaymentPage: React.FC = () => {
     }
   }, [cartItems, navigate, status]);
 
-  const handlePayment = async () => {
-    // ⚠️ VALIDAÇÃO CRÍTICA: NUNCA enviar pagamento sem método
-    if (!paymentMethod) {
-      console.error('❌ Método de pagamento não especificado!');
-      setErrorMessage('Por favor, selecione a forma de pagamento (PIX, Débito ou Crédito)');
-      setStatus('error');
-      setTimeout(() => setStatus('idle'), 3000);
-      return;
-    }
-    
-    if (!currentUser) {
-      console.error('❌ Usuário não autenticado!');
-      return;
-    }
-
+  // 🎯 FUNÇÃO PARA PAGAMENTO PIX (QR Code)
+  const handlePixPayment = async () => {
     setStatus("processing");
-    setPaymentStatusMessage("Iniciando conexão com a maquininha...");
+    setPaymentStatusMessage("Gerando QR Code PIX...");
 
     try {
-      // 1. Criar a intenção de pagamento na maquininha via Backend
+      // 1. Criar pagamento PIX e receber QR Code
+      const createResp = await fetch(`${BACKEND_URL}/api/pix/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: cartTotal,
+          description: `Pedido de ${currentUser!.name}`,
+          orderId: `temp_${Date.now()}`,
+        }),
+      });
+
+      const pixData = await createResp.json();
+
+      if (!createResp.ok || !pixData.paymentId || !pixData.qrCodeBase64) {
+        throw new Error(pixData.error || "Erro ao gerar QR Code PIX");
+      }
+
+      // 2. Exibir QR Code
+      setQrCodeBase64(pixData.qrCodeBase64);
+      setPixPaymentId(pixData.paymentId);
+      setPaymentStatusMessage("Escaneie o QR Code com seu banco...");
+
+      // 3. Polling: Verificar status do PIX a cada 3 segundos
+      let attempts = 0;
+      const maxAttempts = 60; // 3 minutos de espera
+      let approved = false;
+
+      while (attempts < maxAttempts && !approved) {
+        await new Promise((r) => setTimeout(r, 3000));
+
+        const statusResp = await fetch(
+          `${BACKEND_URL}/api/pix/status/${pixData.paymentId}`
+        );
+        const statusData = await statusResp.json();
+
+        console.log("Status PIX:", statusData.status);
+
+        if (statusData.status === "approved") {
+          approved = true;
+        }
+        attempts++;
+      }
+
+      if (!approved) {
+        throw new Error("Tempo esgotado. PIX não foi pago.");
+      }
+
+      // 4. Salvar pedido aprovado
+      await saveOrder(pixData.paymentId);
+    } catch (err: any) {
+      console.error("Erro PIX:", err);
+      setStatus("error");
+      setErrorMessage(err.message || "Erro ao processar pagamento PIX.");
+      setQrCodeBase64(null);
+      setTimeout(() => setStatus("idle"), 4000);
+    }
+  };
+
+  // 💳 FUNÇÃO PARA PAGAMENTO COM CARTÃO (Maquininha)
+  const handleCardPayment = async () => {
+    setStatus("processing");
+    setPaymentStatusMessage("Conectando com a maquininha...");
+
+    try {
+      // 1. Criar pagamento na maquininha Point Pro 2
       const createResp = await fetch(`${BACKEND_URL}/api/payment/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: cartTotal,
-          description: `Pedido de ${currentUser.name}`,
-          orderId: `temp_${Date.now()}`, // ID temporário
-          paymentMethod: paymentMethod, // Envia método escolhido (credit, debit, pix)
+          description: `Pedido de ${currentUser!.name}`,
+          orderId: `temp_${Date.now()}`,
+          paymentMethod: paymentMethod, // credit ou debit
         }),
       });
 
@@ -70,15 +125,14 @@ const PaymentPage: React.FC = () => {
         );
       }
 
-      // 2. Polling: Verificar status a cada 3 segundos
+      // 2. Polling: Verificar status na maquininha
       setPaymentStatusMessage("Aguardando pagamento na maquininha...");
 
       let attempts = 0;
-      const maxAttempts = 60; // ~3 minutos de espera máxima
+      const maxAttempts = 60;
       let approved = false;
 
       while (attempts < maxAttempts && !approved) {
-        // Espera 3 segundos antes de checar
         await new Promise((r) => setTimeout(r, 3000));
 
         const statusResp = await fetch(
@@ -101,58 +155,85 @@ const PaymentPage: React.FC = () => {
         throw new Error("Tempo esgotado ou pagamento não identificado.");
       }
 
-      // 3. LIMPAR FILA DA MAQUININHA (Point Pro 2)
-      // Garante que o botão verde não voltará ao pagamento anterior
+      // 3. Limpar fila da Point Pro 2
       setPaymentStatusMessage("Liberando maquininha...");
       const clearResult = await clearPaymentQueue();
-      
+
       if (!clearResult.success) {
         console.warn("⚠️ Aviso: Não foi possível limpar a fila completamente");
-        // Não bloqueia o fluxo - pagamento já foi aprovado
       }
 
-      // 4. Se aprovou, salva o pedido no banco de dados
-      const payload = {
-        userId: currentUser.id,
-        userName: currentUser.name,
-        items: cartItems.map((item) => ({
-          productId: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        total: cartTotal,
-        paymentMethod: paymentMethod,
-        status: "paid",
-        paymentId: paymentData.id,
-      };
-
-      const saveResp = await fetch(`${BACKEND_URL}/api/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!saveResp.ok) throw new Error("Falha ao salvar pedido no sistema");
-
-      const savedOrder: Order = await saveResp.json();
-
-      // 5. Sucesso Final
-      addOrderToHistory(savedOrder);
-      setStatus("success");
-      clearCart();
-
-      // 6. Redirecionar após 5 segundos e fazer logout
-      setTimeout(() => {
-        logout(); // Faz logout do usuário
-        navigate("/", { replace: true }); // Vai para o screensaver/início
-      }, 5000);
+      // 4. Salvar pedido aprovado
+      await saveOrder(paymentData.id);
     } catch (err: any) {
-      console.error(err);
+      console.error("Erro Cartão:", err);
       setStatus("error");
-      setErrorMessage(err.message || "Erro ao processar pagamento.");
-      // Volta para idle após 4 segundos para tentar de novo
+      setErrorMessage(err.message || "Erro ao processar pagamento com cartão.");
       setTimeout(() => setStatus("idle"), 4000);
+    }
+  };
+
+  // 💾 FUNÇÃO AUXILIAR: Salvar pedido no banco
+  const saveOrder = async (paymentId: string) => {
+    const payload = {
+      userId: currentUser!.id,
+      userName: currentUser!.name,
+      items: cartItems.map((item) => ({
+        productId: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      total: cartTotal,
+      paymentMethod: paymentMethod!,
+      status: "paid",
+      paymentId: paymentId,
+    };
+
+    const saveResp = await fetch(`${BACKEND_URL}/api/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!saveResp.ok) throw new Error("Falha ao salvar pedido no sistema");
+
+    const savedOrder: Order = await saveResp.json();
+
+    // Sucesso final
+    addOrderToHistory(savedOrder);
+    setStatus("success");
+    clearCart();
+    setQrCodeBase64(null);
+
+    // Redirecionar após 5 segundos
+    setTimeout(() => {
+      logout();
+      navigate("/", { replace: true });
+    }, 5000);
+  };
+
+  // 🚀 FUNÇÃO PRINCIPAL: Direciona para PIX ou Cartão
+  const handlePayment = async () => {
+    // Validação crítica
+    if (!paymentMethod) {
+      console.error('❌ Método de pagamento não especificado!');
+      setErrorMessage('Por favor, selecione a forma de pagamento (PIX, Débito ou Crédito)');
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 3000);
+      return;
+    }
+
+    if (!currentUser) {
+      console.error('❌ Usuário não autenticado!');
+      return;
+    }
+
+    // Direciona para função específica
+    if (paymentMethod === "pix") {
+      await handlePixPayment();
+    } else {
+      await handleCardPayment();
     }
   };
 
@@ -253,12 +334,45 @@ const PaymentPage: React.FC = () => {
             onClick={() => setPaymentMethod("pix")}
           />
 
-          {/* Mensagem de Status (Processando ou Erro) */}
-          {status === "processing" && (
+          {/* Mensagem de Status ou QR Code PIX */}
+          {status === "processing" && !qrCodeBase64 && (
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded animate-pulse">
               <p className="text-blue-800 font-semibold text-center">
                 {paymentStatusMessage}
               </p>
+            </div>
+          )}
+
+          {/* QR Code PIX */}
+          {status === "processing" && qrCodeBase64 && (
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-300 p-6 rounded-2xl shadow-xl animate-fade-in-down">
+              <h3 className="text-center text-purple-900 font-bold text-xl mb-4 flex items-center justify-center gap-2">
+                💠 Pague com PIX
+              </h3>
+              
+              {/* QR Code */}
+              <div className="bg-white p-4 rounded-xl shadow-lg mx-auto w-fit mb-4">
+                <img 
+                  src={`data:image/png;base64,${qrCodeBase64}`} 
+                  alt="QR Code PIX" 
+                  className="w-64 h-64 mx-auto"
+                />
+              </div>
+
+              {/* Instruções */}
+              <div className="text-center space-y-2">
+                <p className="text-purple-800 font-semibold animate-pulse">
+                  {paymentStatusMessage}
+                </p>
+                <div className="text-sm text-purple-600 space-y-1">
+                  <p>📱 Abra o app do seu banco</p>
+                  <p>📷 Escaneie o QR Code</p>
+                  <p>✅ Confirme o pagamento</p>
+                </div>
+                <p className="text-xs text-purple-400 mt-4">
+                  Aguardando confirmação...
+                </p>
+              </div>
             </div>
           )}
 
