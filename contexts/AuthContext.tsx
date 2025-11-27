@@ -5,7 +5,7 @@ import type { User, Order } from "../types";
 interface AuthContextType {
   currentUser: User | null; // usuário atualmente logado ou null se ninguém estiver logado
   login: (user: User) => void; // função para setar o usuário como logado
-  logout: () => void; // função para deslogar (limpar o usuário)
+  logout: () => Promise<void>; // função para deslogar (limpar o usuário e pagamentos)
   addOrderToHistory: (order: Order) => void; // adiciona um pedido ao histórico do usuário
 }
 
@@ -37,8 +37,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  // Função para realizar logout: simplesmente limpa o usuário
-  const logout = () => {
+  // Função para realizar logout: limpa pagamentos pendentes e depois deslogar
+  const logout = async () => {
+    try {
+      // Limpar qualquer pagamento pendente na fila
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      
+      console.log('🧼 Limpando pagamentos pendentes antes de logout...');
+      
+      const response = await fetch(`${API_URL}/api/payment/clear-queue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ ${data.cleared || 0} pagamento(s) limpo(s)`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao limpar pagamentos (continua logout):', error);
+    }
+    
+    // Limpar usuário
     setCurrentUser(null);
     try {
       localStorage.removeItem("currentUser");

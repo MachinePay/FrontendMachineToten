@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -27,6 +27,52 @@ const PaymentPage: React.FC = () => {
   // Estados específicos para PIX com QR Code
   const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
   const [pixPaymentId, setPixPaymentId] = useState<string | null>(null);
+  
+  // Refs para controlar pagamento ativo e permitir cancelamento
+  const activePaymentId = useRef<string | null>(null);
+  const activePaymentType = useRef<'pix' | 'card' | null>(null);
+  const shouldCancelPolling = useRef(false);
+
+  // ❌ FUNÇÃO PARA CANCELAR PAGAMENTO
+  const handleCancelPayment = async () => {
+    if (!activePaymentId.current) return;
+
+    const confirmCancel = window.confirm(
+      '⚠️ Tem certeza que deseja cancelar este pagamento?'
+    );
+
+    if (!confirmCancel) return;
+
+    try {
+      console.log(`🚫 Cancelando pagamento: ${activePaymentId.current}`);
+      
+      // Para o polling
+      shouldCancelPolling.current = true;
+
+      // Chama API de cancelamento
+      const response = await fetch(
+        `${BACKEND_URL}/api/payment/cancel/${activePaymentId.current}`,
+        { method: 'DELETE' }
+      );
+
+      if (response.ok) {
+        console.log('✅ Pagamento cancelado com sucesso');
+      }
+
+      // Limpa estados
+      activePaymentId.current = null;
+      activePaymentType.current = null;
+      setQrCodeBase64(null);
+      setPixPaymentId(null);
+      setStatus('idle');
+      setPaymentStatusMessage('');
+      setPaymentMethod(null);
+
+    } catch (error) {
+      console.error('❌ Erro ao cancelar pagamento:', error);
+      alert('Erro ao cancelar pagamento. Tente novamente.');
+    }
+  };
 
   // Se o carrinho estiver vazio, volta para o menu
   useEffect(() => {
@@ -35,10 +81,26 @@ const PaymentPage: React.FC = () => {
     }
   }, [cartItems, navigate, status]);
 
+  // Cleanup: Cancela pagamento se usuário sair da página
+  useEffect(() => {
+    return () => {
+      if (activePaymentId.current && status === 'processing') {
+        console.log('⚠️ Usuário saiu da página - cancelando pagamento...');
+        shouldCancelPolling.current = true;
+        
+        // Cancela assincronamente (não bloqueia navegação)
+        fetch(`${BACKEND_URL}/api/payment/cancel/${activePaymentId.current}`, {
+          method: 'DELETE'
+        }).catch(console.error);
+      }
+    };
+  }, [status]);
+
   // 🎯 FUNÇÃO PARA PAGAMENTO PIX (QR Code)
   const handlePixPayment = async () => {
     setStatus("processing");
     setPaymentStatusMessage("Gerando QR Code PIX...");
+    shouldCancelPolling.current = false;
 
     try {
       // 1. Criar pagamento PIX e receber QR Code
@@ -58,18 +120,28 @@ const PaymentPage: React.FC = () => {
         throw new Error(pixData.error || "Erro ao gerar QR Code PIX");
       }
 
-      // 2. Exibir QR Code
+      // 2. Registrar pagamento ativo
+      activePaymentId.current = pixData.paymentId;
+      activePaymentType.current = 'pix';
+
+      // 3. Exibir QR Code
       setQrCodeBase64(pixData.qrCodeBase64);
       setPixPaymentId(pixData.paymentId);
       setPaymentStatusMessage("Escaneie o QR Code com seu banco...");
 
-      // 3. Polling: Verificar status do PIX a cada 3 segundos
+      // 4. Polling: Verificar status do PIX a cada 3 segundos
       let attempts = 0;
       const maxAttempts = 60; // 3 minutos de espera
       let approved = false;
 
-      while (attempts < maxAttempts && !approved) {
+      while (attempts < maxAttempts && !approved && !shouldCancelPolling.current) {
         await new Promise((r) => setTimeout(r, 3000));
+
+        // Verifica se foi cancelado durante o sleep
+        if (shouldCancelPolling.current) {
+          console.log('⚠️ Polling PIX cancelado pelo usuário');
+          throw new Error('Pagamento cancelado');
+        }
 
         const statusResp = await fetch(
           `${BACKEND_URL}/api/pix/status/${pixData.paymentId}`
@@ -88,10 +160,14 @@ const PaymentPage: React.FC = () => {
         throw new Error("Tempo esgotado. PIX não foi pago.");
       }
 
-      // 4. Salvar pedido aprovado
+      // 5. Salvar pedido aprovado
+      activePaymentId.current = null;
+      activePaymentType.current = null;
       await saveOrder(pixData.paymentId);
     } catch (err: any) {
       console.error("Erro PIX:", err);
+      activePaymentId.current = null;
+      activePaymentType.current = null;
       setStatus("error");
       setErrorMessage(err.message || "Erro ao processar pagamento PIX.");
       setQrCodeBase64(null);
@@ -103,6 +179,7 @@ const PaymentPage: React.FC = () => {
   const handleCardPayment = async () => {
     setStatus("processing");
     setPaymentStatusMessage("Conectando com a maquininha...");
+    shouldCancelPolling.current = false;
 
     try {
       // 1. Criar pagamento na maquininha Point Pro 2
@@ -125,15 +202,25 @@ const PaymentPage: React.FC = () => {
         );
       }
 
-      // 2. Polling: Verificar status na maquininha
+      // 2. Registrar pagamento ativo
+      activePaymentId.current = paymentData.id;
+      activePaymentType.current = 'card';
+
+      // 3. Polling: Verificar status na maquininha
       setPaymentStatusMessage("Aguardando pagamento na maquininha...");
 
       let attempts = 0;
       const maxAttempts = 60;
       let approved = false;
 
-      while (attempts < maxAttempts && !approved) {
+      while (attempts < maxAttempts && !approved && !shouldCancelPolling.current) {
         await new Promise((r) => setTimeout(r, 3000));
+
+        // Verifica se foi cancelado
+        if (shouldCancelPolling.current) {
+          console.log('⚠️ Polling cartão cancelado pelo usuário');
+          throw new Error('Pagamento cancelado');
+        }
 
         const statusResp = await fetch(
           `${BACKEND_URL}/api/payment/status/${paymentData.id}`
@@ -155,7 +242,7 @@ const PaymentPage: React.FC = () => {
         throw new Error("Tempo esgotado ou pagamento não identificado.");
       }
 
-      // 3. Limpar fila da Point Pro 2
+      // 4. Limpar fila da Point Pro 2
       setPaymentStatusMessage("Liberando maquininha...");
       const clearResult = await clearPaymentQueue();
 
@@ -163,10 +250,14 @@ const PaymentPage: React.FC = () => {
         console.warn("⚠️ Aviso: Não foi possível limpar a fila completamente");
       }
 
-      // 4. Salvar pedido aprovado
+      // 5. Salvar pedido aprovado
+      activePaymentId.current = null;
+      activePaymentType.current = null;
       await saveOrder(paymentData.id);
     } catch (err: any) {
       console.error("Erro Cartão:", err);
+      activePaymentId.current = null;
+      activePaymentType.current = null;
       setStatus("error");
       setErrorMessage(err.message || "Erro ao processar pagamento com cartão.");
       setTimeout(() => setStatus("idle"), 4000);
@@ -207,8 +298,8 @@ const PaymentPage: React.FC = () => {
     setQrCodeBase64(null);
 
     // Redirecionar após 5 segundos
-    setTimeout(() => {
-      logout();
+    setTimeout(async () => {
+      await logout();
       navigate("/", { replace: true });
     }, 5000);
   };
@@ -382,20 +473,27 @@ const PaymentPage: React.FC = () => {
             </div>
           )}
 
-          <button
-            onClick={handlePayment}
-            disabled={!paymentMethod || status === "processing"}
-            className={`mt-4 w-full py-4 rounded-xl font-bold text-xl transition-all transform shadow-lg
-              ${
-                !paymentMethod || status === "processing"
+          {/* Botão de Pagamento ou Cancelar */}
+          {status === "processing" ? (
+            <button
+              onClick={handleCancelPayment}
+              className="mt-4 w-full py-4 rounded-xl font-bold text-xl transition-all transform shadow-lg bg-red-600 text-white hover:bg-red-700 hover:scale-105"
+            >
+              ❌ Cancelar Pagamento
+            </button>
+          ) : (
+            <button
+              onClick={handlePayment}
+              disabled={!paymentMethod}
+              className={`mt-4 w-full py-4 rounded-xl font-bold text-xl transition-all transform shadow-lg ${
+                !paymentMethod
                   ? "bg-stone-300 text-stone-500 cursor-not-allowed"
                   : "bg-green-600 text-white hover:bg-green-700 hover:scale-105"
               }`}
-          >
-            {status === "processing"
-              ? "Processando..."
-              : `Pagar R$ ${cartTotal.toFixed(2)}`}
-          </button>
+            >
+              Pagar R$ {cartTotal.toFixed(2)}
+            </button>
+          )}
         </div>
       </div>
     </div>

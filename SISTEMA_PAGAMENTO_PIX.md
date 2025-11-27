@@ -114,11 +114,11 @@ const handlePixPayment = async () => {
   
   // 2. Exibir QR Code
   setQrCodeBase64(pixData.qrCodeBase64);
-  setPixPaymentId(pixData.id);
+  setPixPaymentId(pixData.paymentId);
 
   // 3. Polling de status
   while (!approved) {
-    const statusResp = await fetch(`${BACKEND_URL}/api/pix/status/${pixData.id}`);
+    const statusResp = await fetch(`${BACKEND_URL}/api/pix/status/${pixData.paymentId}`);
     const statusData = await statusResp.json();
     
     if (statusData.status === "approved") {

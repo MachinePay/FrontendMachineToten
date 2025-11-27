@@ -69,14 +69,16 @@ const InactivityGuard: React.FC = () => {
             // time's up -> logout and go to screensaver
             clearCountdownTimer();
             setShowPrompt(false);
-            // Logout and cleanup
-            logout();
-            try {
-              clearCart();
-            } catch {
-              /* ignore */
-            }
-            navigate("/", { replace: true });
+            // Logout and cleanup (async)
+            (async () => {
+              await logout();
+              try {
+                clearCart();
+              } catch {
+                /* ignore */
+              }
+              navigate("/", { replace: true });
+            })();
             return 0;
           }
           return prev - 1;

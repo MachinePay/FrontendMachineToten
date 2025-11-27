@@ -12,8 +12,21 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
 
   // Função que faz logout e redireciona para a página inicial
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    // Verifica se está na página de pagamento
+    const isOnPaymentPage = window.location.hash.includes('/payment');
+    
+    if (isOnPaymentPage) {
+      const confirmLogout = window.confirm(
+        '⚠️ Você está na tela de pagamento!\n\nSe houver um pagamento em andamento, ele será cancelado automaticamente.\n\nDeseja continuar?'
+      );
+      
+      if (!confirmLogout) {
+        return; // Cancela o logout
+      }
+    }
+    
+    await logout();
     navigate('/');
   };
 
