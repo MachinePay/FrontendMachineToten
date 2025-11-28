@@ -65,7 +65,7 @@ const InactivityGuard: React.FC = () => {
       clearCountdownTimer();
       countdownTimerRef.current = window.setInterval(() => {
         setCountdown((prev) => {
-          if (prev <= 1) {
+          if (prev <= 3000) {
             // time's up -> logout and go to screensaver
             clearCountdownTimer();
             setShowPrompt(false);
