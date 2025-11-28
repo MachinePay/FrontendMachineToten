@@ -400,7 +400,7 @@ const MenuPage: React.FC = () => {
       />
 
       {/* 2. ÁREA CENTRAL (Produtos - Scrollável) */}
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden">
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden pb-40">
         {/* Header Mobile */}
         <header className="md:hidden bg-white/90 backdrop-blur-md p-3 sticky top-0 z-20 border-b border-stone-200 shadow-sm flex justify-between items-center">
           <h2 className="font-bold text-amber-800 text-lg">
