@@ -1,4 +1,10 @@
-import React, { createContext, useState, useContext, ReactNode } from "react";
+import React, {
+  createContext,
+  useState,
+  useContext,
+  ReactNode,
+  useEffect,
+} from "react";
 import type { CartItem, Product } from "../types";
 
 /*
@@ -30,8 +36,25 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  // Estado local que guarda os itens do carrinho
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  // 1. Inicialização Inteligente: Tenta ler do LocalStorage primeiro
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const savedCart = localStorage.getItem("kiosk_cart");
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error("Erro ao recuperar carrinho:", error);
+      return [];
+    }
+  });
+
+  // 2. Efeito de Persistência: Salva no LocalStorage sempre que o carrinho mudar
+  useEffect(() => {
+    try {
+      localStorage.setItem("kiosk_cart", JSON.stringify(cartItems));
+    } catch (error) {
+      console.error("Erro ao salvar carrinho:", error);
+    }
+  }, [cartItems]);
 
   /*
     Adiciona um produto ao carrinho.
@@ -43,16 +66,21 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const addToCart = (product: Product) => {
     // Validação de estoque
     if ((product.stock ?? 0) === 0) {
-      alert('Produto esgotado!');
+      alert("Produto esgotado!");
       return;
     }
-    
+
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
         // Verifica se a quantidade no carrinho já atingiu o estoque disponível
-        if (product.stock !== undefined && existingItem.quantity >= product.stock) {
-          alert(`Estoque limitado! Máximo de ${product.stock} unidades disponíveis.`);
+        if (
+          product.stock !== undefined &&
+          existingItem.quantity >= product.stock
+        ) {
+          alert(
+            `Estoque limitado! Máximo de ${product.stock} unidades disponíveis.`
+          );
           return prevItems;
         }
         return prevItems.map((item) =>
@@ -93,6 +121,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   // Limpa o carrinho, definindo a lista de itens como vazia
+  // O useEffect atualizará o localStorage automaticamente
   const clearCart = () => {
     setCartItems([]);
   };

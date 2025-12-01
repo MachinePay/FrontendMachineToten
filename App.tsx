@@ -6,11 +6,12 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // <--- IMPORTANTE
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
 import LoginPage from "./pages/LoginPage";
 import MenuPage from "./pages/MenuPage";
-import PaymentPage from "./pages/PaymentPage"; // Nova importação
+import PaymentPage from "./pages/PaymentPage";
 import KitchenPage from "./pages/KitchenPage";
 import KitchenLoginPage from "./pages/KitchenLoginPage";
 import AdminPage from "./pages/AdminPage";
@@ -23,6 +24,16 @@ import InactivityGuard from "./components/InactivityGuard";
 import { configurePoint, checkPointStatus } from "./services/pointService";
 import type { UserRole } from "./types";
 
+// 1. Configuração do Cliente React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Não recarregar ao trocar de aba
+      retry: 1, // Tenta apenas 1 vez se der erro de rede
+    },
+  },
+});
+
 // Proteção de rota para clientes (customer)
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -31,7 +42,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
-  // Se for kitchen ou admin, redirecionar para suas respectivas páginas
   if (currentUser.role === "kitchen") {
     return <Navigate to="/cozinha" replace />;
   }
@@ -65,38 +75,44 @@ const App: React.FC = () => {
   // Configurar Point Smart 2 na inicialização do sistema
   useEffect(() => {
     const initializePoint = async () => {
-      console.log('🚀 Inicializando Point Smart 2...');
-      
+      console.log("🚀 Inicializando Point Smart 2...");
+
       // 1. Configurar Point em modo PDV (bloqueia menu da maquininha)
       const configResult = await configurePoint();
-      
+
       // 2. Verificar status da conexão (opcional, para debug)
       if (configResult.success) {
         const statusResult = await checkPointStatus();
-        
+
         if (statusResult.connected) {
-          console.log('✅ Sistema pronto para receber pagamentos');
-          console.log(`📱 Dispositivo: ${statusResult.model || 'Point Smart 2'}`);
-          console.log(`⚙️ Modo: ${statusResult.operating_mode || 'PDV'}`);
+          console.log("✅ Sistema pronto para receber pagamentos");
+          console.log(
+            `📱 Dispositivo: ${statusResult.model || "Point Smart 2"}`
+          );
+          console.log(`⚙️ Modo: ${statusResult.operating_mode || "PDV"}`);
         }
       } else {
-        console.warn('⚠️ Point não disponível - pagamentos podem não funcionar');
-        console.warn('💡 Verifique se a maquininha está ligada e conectada');
+        console.warn(
+          "⚠️ Point não disponível - pagamentos podem não funcionar"
+        );
+        console.warn("💡 Verifique se a maquininha está ligada e conectada");
       }
     };
-    
-    // Executa inicialização ao iniciar o sistema
+
     initializePoint();
   }, []);
 
   return (
-    <AuthProvider>
-      <CartProvider>
-        <HashRouter>
-          <RouterBody />
-        </HashRouter>
-      </CartProvider>
-    </AuthProvider>
+    // 2. Envolvendo a aplicação com o Provider do React Query
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <CartProvider>
+          <HashRouter>
+            <RouterBody />
+          </HashRouter>
+        </CartProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
@@ -123,7 +139,7 @@ const RouterBody: React.FC = () => {
             }
           />
 
-          {/* Rota protegida para pagamento (NOVA) */}
+          {/* Rota protegida para pagamento */}
           <Route
             path="/payment"
             element={
@@ -133,7 +149,7 @@ const RouterBody: React.FC = () => {
             }
           />
 
-          {/* Rotas de login especiais (sem botão, só por URL) */}
+          {/* Rotas de login especiais */}
           <Route path="/cozinha/login" element={<KitchenLoginPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
 

@@ -26,8 +26,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   quantityInCart = 0,
 }) => {
-  const isOutOfStock = (product.stock ?? 0) === 0;
-  const isLowStock = (product.stock ?? 0) > 0 && (product.stock ?? 0) < 10;
+  // Lógica ajustada: Se for null é ilimitado. Se for 0 é esgotado.
+  const isOutOfStock = product.stock === 0;
 
   return (
     <div
@@ -35,15 +35,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
         isOutOfStock ? "opacity-60 grayscale" : ""
       }`}
     >
-      {/* Badges */}
+      {/* Badges - Apenas ESGOTADO agora */}
       {isOutOfStock && (
         <div className="absolute top-2 right-2 z-10 bg-red-600 text-white font-bold px-2 py-1 rounded text-xs shadow-sm">
           ESGOTADO
-        </div>
-      )}
-      {isLowStock && (
-        <div className="absolute top-2 right-2 z-10 bg-yellow-500 text-white font-bold px-2 py-1 rounded text-xs shadow-sm">
-          Restam {product.stock}
         </div>
       )}
 

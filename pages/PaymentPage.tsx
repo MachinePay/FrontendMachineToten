@@ -1,429 +1,310 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
+import { useQuery } from "@tanstack/react-query"; // Importação Nova
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
 import { clearPaymentQueue } from "../services/pointService";
 import type { Order } from "../types";
 
-// URL do Backend
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+// Tipo para controlar o pagamento ativo
+type ActivePaymentState = {
+  id: string;
+  type: "pix" | "card";
+  orderId: string;
+} | null;
 
 const PaymentPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { currentUser, addOrderToHistory, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Estados de UI
   const [paymentMethod, setPaymentMethod] = useState<
     "credit" | "debit" | "pix" | null
   >(null);
-
   const [status, setStatus] = useState<
     "idle" | "processing" | "success" | "error"
   >("idle");
-
   const [errorMessage, setErrorMessage] = useState("");
   const [paymentStatusMessage, setPaymentStatusMessage] = useState("");
-  
-  // Estados específicos para PIX com QR Code
+
+  // Estados para PIX
   const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
-  const [pixPaymentId, setPixPaymentId] = useState<string | null>(null);
-  
-  // Refs para controlar pagamento ativo e permitir cancelamento
-  const activePaymentId = useRef<string | null>(null);
-  const activePaymentType = useRef<'pix' | 'card' | null>(null);
-  const shouldCancelPolling = useRef(false);
 
-  // ❌ FUNÇÃO PARA CANCELAR PAGAMENTO
-  const handleCancelPayment = async () => {
-    if (!activePaymentId.current) return;
+  // Estado que ATIVA o React Query (substitui o loop while)
+  const [activePayment, setActivePayment] = useState<ActivePaymentState>(null);
 
-    const result = await Swal.fire({
-      title: '⚠️ Cancelar Pagamento?',
-      text: 'Tem certeza que deseja cancelar este pagamento?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sim, cancelar',
-      cancelButtonText: 'Não',
-      reverseButtons: true
-    });
+  // Ref para limpeza (cleanup) ao desmontar a página
+  const paymentIdRef = useRef<string | null>(null);
 
-    if (!result.isConfirmed) return;
-
-    try {
-      console.log(`🚫 Cancelando pagamento: ${activePaymentId.current}`);
-      
-      // Para o polling
-      shouldCancelPolling.current = true;
-
-      // Chama API de cancelamento
+  // --- REACT QUERY: POLLING INTELIGENTE ---
+  // Substitui o loop while. Só roda quando activePayment existe.
+  const { data: paymentStatusData } = useQuery({
+    queryKey: ["paymentStatus", activePayment?.id, activePayment?.type],
+    queryFn: async () => {
+      if (!activePayment) return null;
+      const endpoint = activePayment.type === "pix" ? "pix" : "payment";
       const response = await fetch(
-        `${BACKEND_URL}/api/payment/cancel/${activePaymentId.current}`,
-        { method: 'DELETE' }
+        `${BACKEND_URL}/api/${endpoint}/status/${activePayment.id}`
       );
+      if (!response.ok) throw new Error("Erro ao verificar status");
+      return response.json();
+    },
+    // Só executa se tiver um pagamento ativo e não tiver finalizado ainda
+    enabled: !!activePayment && status === "processing",
+    // Polling a cada 3 segundos
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Para o polling se aprovado ou cancelado
+      if (data?.status === "approved" || data?.status === "FINISHED")
+        return false;
+      return 3000;
+    },
+    // Não refazer busca se o usuário trocar de janela (evita bugs de foco)
+    refetchOnWindowFocus: false,
+  });
 
-      if (response.ok) {
-        console.log('✅ Pagamento cancelado com sucesso');
-        await Swal.fire({
-          title: 'Cancelado!',
-          text: 'O pagamento foi cancelado com sucesso.',
-          icon: 'success',
-          timer: 2000,
-          showConfirmButton: false
-        });
+  // --- EFEITO: Monitora o status vindo do React Query ---
+  useEffect(() => {
+    if (paymentStatusData?.status === "approved" && activePayment) {
+      console.log(
+        "✅ Pagamento detectado pelo React Query:",
+        paymentStatusData
+      );
+      finalizeOrder(
+        activePayment.orderId,
+        activePayment.id,
+        activePayment.type
+      );
+    }
+  }, [paymentStatusData, activePayment]);
+
+  // --- EFEITO: Cleanup de Segurança (Zombie Killer) ---
+  useEffect(() => {
+    paymentIdRef.current = activePayment?.id || null;
+  }, [activePayment]);
+
+  useEffect(() => {
+    return () => {
+      // Se o componente desmontar (usuário clicar em Voltar) e tiver pagamento pendente
+      if (paymentIdRef.current) {
+        console.log(
+          `🧹 Cleanup: Cancelando pagamento ${paymentIdRef.current} no backend...`
+        );
+        // Usa fetch com keepalive para garantir que o cancelamento vá mesmo fechando a aba
+        fetch(`${BACKEND_URL}/api/payment/cancel/${paymentIdRef.current}`, {
+          method: "DELETE",
+          keepalive: true,
+        }).catch((err) => console.error("Erro no cleanup:", err));
+      }
+    };
+  }, []);
+
+  // --- Lógica de Finalização ---
+  const finalizeOrder = async (
+    orderId: string,
+    paymentId: string,
+    type: "pix" | "card"
+  ) => {
+    try {
+      // 1. Atualiza pedido no banco
+      await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId, paymentStatus: "paid" }),
+      });
+
+      // 2. Se for cartão, garante limpeza da fila da maquininha
+      if (type === "card") {
+        setPaymentStatusMessage("Liberando maquininha...");
+        await clearPaymentQueue();
       }
 
-      // Limpa estados
-      activePaymentId.current = null;
-      activePaymentType.current = null;
-      setQrCodeBase64(null);
-      setPixPaymentId(null);
-      setStatus('idle');
-      setPaymentStatusMessage('');
-      setPaymentMethod(null);
+      // 3. Atualiza histórico local
+      const orderData: Order = {
+        id: orderId,
+        userId: currentUser!.id,
+        userName: currentUser!.name,
+        items: cartItems.map((i) => ({
+          productId: i.id,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+        })),
+        total: cartTotal,
+        timestamp: new Date().toISOString(),
+        status: "active",
+      };
 
+      addOrderToHistory(orderData);
+
+      // 4. Limpa UI e Redireciona
+      setActivePayment(null); // Para o polling
+      setStatus("success");
+      clearCart();
+      setQrCodeBase64(null);
+
+      setTimeout(async () => {
+        await logout();
+        navigate("/", { replace: true });
+      }, 5000);
     } catch (error) {
-      console.error('❌ Erro ao cancelar pagamento:', error);
-      await Swal.fire({
-        title: 'Erro!',
-        text: 'Erro ao cancelar pagamento. Tente novamente.',
-        icon: 'error',
-        confirmButtonText: 'OK'
-      });
+      console.error("Erro ao finalizar:", error);
+      setErrorMessage(
+        "Pagamento aprovado, mas erro ao salvar. Contate o caixa."
+      );
+      setStatus("error");
     }
   };
 
-  // Se o carrinho estiver vazio, volta para o menu
-  useEffect(() => {
-    if (cartItems.length === 0 && status !== "success") {
-      navigate("/menu");
-    }
-  }, [cartItems, navigate, status]);
+  // --- Helpers de Criação ---
 
-  // Cleanup: Cancela pagamento se usuário sair da página
-  useEffect(() => {
-    return () => {
-      if (activePaymentId.current && status === 'processing') {
-        console.log('⚠️ Usuário saiu da página - cancelando pagamento...');
-        shouldCancelPolling.current = true;
-        
-        // Cancela assincronamente (não bloqueia navegação)
-        fetch(`${BACKEND_URL}/api/payment/cancel/${activePaymentId.current}`, {
-          method: 'DELETE'
-        }).catch(console.error);
-      }
-    };
-  }, [status]);
+  const createOrder = async () => {
+    const orderResp = await fetch(`${BACKEND_URL}/api/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: currentUser!.id,
+        userName: currentUser!.name,
+        items: cartItems.map((i) => ({
+          id: i.id,
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        total: cartTotal,
+        paymentId: null,
+      }),
+    });
+    if (!orderResp.ok) throw new Error("Erro ao criar pedido");
+    const data = await orderResp.json();
+    return data.id;
+  };
 
-  // 🎯 FUNÇÃO PARA PAGAMENTO PIX (QR Code)
+  // --- Handlers de Início ---
+
   const handlePixPayment = async () => {
     setStatus("processing");
-    setPaymentStatusMessage("Criando pedido...");
-    shouldCancelPolling.current = false;
+    setPaymentStatusMessage("Gerando QR Code...");
 
     try {
-      // 1. PRIMEIRO: Criar pedido (desconta estoque no backend)
-      const orderResp = await fetch(`${BACKEND_URL}/api/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: currentUser!.id,
-          userName: currentUser!.name,
-          items: cartItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          total: cartTotal,
-          paymentId: null, // Ainda não temos o paymentId
-        }),
-      });
+      const orderId = await createOrder();
 
-      if (!orderResp.ok) {
-        throw new Error("Erro ao criar pedido");
-      }
-
-      const orderData = await orderResp.json();
-      const orderId = orderData.id; // ID real: "order_123456789"
-      console.log(`✅ Pedido criado: ${orderId}`);
-
-      // 2. DEPOIS: Criar pagamento PIX com orderId real
-      setPaymentStatusMessage("Gerando QR Code PIX...");
       const createResp = await fetch(`${BACKEND_URL}/api/pix/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: cartTotal,
           description: `Pedido de ${currentUser!.name}`,
-          orderId: orderId, // USA O ID DO PEDIDO CRIADO
+          orderId: orderId,
         }),
       });
 
       const pixData = await createResp.json();
+      if (!pixData.paymentId || !pixData.qrCodeBase64)
+        throw new Error("Erro ao gerar PIX");
 
-      if (!createResp.ok || !pixData.paymentId || !pixData.qrCodeBase64) {
-        throw new Error(pixData.error || "Erro ao gerar QR Code PIX");
-      }
-
-      // 2. Registrar pagamento ativo
-      activePaymentId.current = pixData.paymentId;
-      activePaymentType.current = 'pix';
-
-      // 3. Exibir QR Code
       setQrCodeBase64(pixData.qrCodeBase64);
-      setPixPaymentId(pixData.paymentId);
-      setPaymentStatusMessage("Escaneie o QR Code com seu banco...");
+      setPaymentStatusMessage("Escaneie o QR Code...");
 
-      // 4. Polling: Verificar status do PIX a cada 3 segundos
-      let attempts = 0;
-      const maxAttempts = 60; // 3 minutos de espera
-      let approved = false;
-
-      while (attempts < maxAttempts && !approved && !shouldCancelPolling.current) {
-        await new Promise((r) => setTimeout(r, 3000));
-
-        // Verifica se foi cancelado durante o sleep
-        if (shouldCancelPolling.current) {
-          console.log('⚠️ Polling PIX cancelado pelo usuário');
-          throw new Error('Pagamento cancelado');
-        }
-
-        const statusResp = await fetch(
-          `${BACKEND_URL}/api/pix/status/${pixData.paymentId}`
-        );
-        const statusData = await statusResp.json();
-
-        console.log("Status PIX:", statusData.status);
-
-        if (statusData.status === "approved") {
-          approved = true;
-        }
-        attempts++;
-      }
-
-      if (!approved) {
-        throw new Error("Tempo esgotado. PIX não foi pago.");
-      }
-
-      // 5. Atualizar pedido com paymentId
-      await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentId: pixData.paymentId, paymentStatus: "paid" }),
-      });
-
-      // 6. Sucesso - adicionar ao histórico e limpar carrinho
-      activePaymentId.current = null;
-      activePaymentType.current = null;
-      addOrderToHistory(orderData);
-      setStatus("success");
-      clearCart();
-      setQrCodeBase64(null);
-
-      // Redirecionar após 5 segundos
-      setTimeout(async () => {
-        await logout();
-        navigate("/", { replace: true });
-      }, 5000);
+      // Inicia Polling Automático via React Query
+      setActivePayment({ id: pixData.paymentId, type: "pix", orderId });
     } catch (err: any) {
-      console.error("Erro PIX:", err);
-      activePaymentId.current = null;
-      activePaymentType.current = null;
+      console.error(err);
       setStatus("error");
-      setErrorMessage(err.message || "Erro ao processar pagamento PIX.");
-      setQrCodeBase64(null);
-      setTimeout(() => setStatus("idle"), 4000);
+      setErrorMessage("Erro no PIX.");
     }
   };
 
-  // 💳 FUNÇÃO PARA PAGAMENTO COM CARTÃO (Maquininha)
   const handleCardPayment = async () => {
     setStatus("processing");
-    setPaymentStatusMessage("Criando pedido...");
-    shouldCancelPolling.current = false;
+    setPaymentStatusMessage("Conectando à maquininha...");
 
     try {
-      // 1. PRIMEIRO: Criar pedido (desconta estoque no backend)
-      const orderResp = await fetch(`${BACKEND_URL}/api/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: currentUser!.id,
-          userName: currentUser!.name,
-          items: cartItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          total: cartTotal,
-          paymentId: null,
-        }),
-      });
+      const orderId = await createOrder();
 
-      if (!orderResp.ok) {
-        throw new Error("Erro ao criar pedido");
-      }
-
-      const orderData = await orderResp.json();
-      const orderId = orderData.id;
-      console.log(`✅ Pedido criado: ${orderId}`);
-
-      // 2. DEPOIS: Criar pagamento na maquininha com orderId real
-      setPaymentStatusMessage("Conectando com a maquininha...");
       const createResp = await fetch(`${BACKEND_URL}/api/payment/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: cartTotal,
-          description: `Pedido de ${currentUser!.name}`,
-          orderId: orderId, // USA O ID DO PEDIDO CRIADO
-          paymentMethod: paymentMethod, // credit ou debit
+          description: `Pedido ${currentUser!.name}`,
+          orderId: orderId,
+          paymentMethod: paymentMethod,
         }),
       });
 
       const paymentData = await createResp.json();
+      if (!paymentData.id) throw new Error("Erro na maquininha");
 
-      if (!createResp.ok || !paymentData.id) {
-        throw new Error(
-          paymentData.error || "Erro ao conectar com a maquininha"
-        );
-      }
-
-      // 2. Registrar pagamento ativo
-      activePaymentId.current = paymentData.id;
-      activePaymentType.current = 'card';
-
-      // 3. Polling: Verificar status na maquininha
       setPaymentStatusMessage("Aguardando pagamento na maquininha...");
 
-      let attempts = 0;
-      const maxAttempts = 60;
-      let approved = false;
-
-      while (attempts < maxAttempts && !approved && !shouldCancelPolling.current) {
-        await new Promise((r) => setTimeout(r, 3000));
-
-        // Verifica se foi cancelado
-        if (shouldCancelPolling.current) {
-          console.log('⚠️ Polling cartão cancelado pelo usuário');
-          throw new Error('Pagamento cancelado');
-        }
-
-        const statusResp = await fetch(
-          `${BACKEND_URL}/api/payment/status/${paymentData.id}`
-        );
-        const statusData = await statusResp.json();
-
-        console.log("Status Maquininha:", statusData.status);
-
-        if (
-          statusData.status === "approved" ||
-          statusData.status === "FINISHED"
-        ) {
-          approved = true;
-        }
-        attempts++;
-      }
-
-      if (!approved) {
-        throw new Error("Tempo esgotado ou pagamento não identificado.");
-      }
-
-      // 4. Atualizar pedido com paymentId
-      await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentId: paymentData.id, paymentStatus: "paid" }),
-      });
-
-      // 5. Limpar fila da Point Pro 2
-      setPaymentStatusMessage("Liberando maquininha...");
-      const clearResult = await clearPaymentQueue();
-
-      if (!clearResult.success) {
-        console.warn("⚠️ Aviso: Não foi possível limpar a fila completamente");
-      }
-
-      // 6. Sucesso - adicionar ao histórico e limpar carrinho
-      activePaymentId.current = null;
-      activePaymentType.current = null;
-      addOrderToHistory(orderData);
-      setStatus("success");
-      clearCart();
-
-      // Redirecionar após 5 segundos
-      setTimeout(async () => {
-        await logout();
-        navigate("/", { replace: true });
-      }, 5000);
+      // Inicia Polling Automático via React Query
+      setActivePayment({ id: paymentData.id, type: "card", orderId });
     } catch (err: any) {
-      console.error("Erro Cartão:", err);
-      activePaymentId.current = null;
-      activePaymentType.current = null;
+      console.error(err);
       setStatus("error");
-      setErrorMessage(err.message || "Erro ao processar pagamento com cartão.");
-      setTimeout(() => setStatus("idle"), 4000);
+      setErrorMessage("Erro ao conectar maquininha.");
     }
   };
 
+  const handleCancelPayment = async () => {
+    if (!activePayment) return;
 
+    const result = await Swal.fire({
+      title: "Cancelar?",
+      text: "Deseja cancelar o pagamento?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      confirmButtonText: "Sim, cancelar",
+    });
 
-  // 🚀 FUNÇÃO PRINCIPAL: Direciona para PIX ou Cartão
+    if (result.isConfirmed) {
+      try {
+        await fetch(`${BACKEND_URL}/api/payment/cancel/${activePayment.id}`, {
+          method: "DELETE",
+        });
+        setActivePayment(null); // Para o polling imediatamente
+        setStatus("idle");
+        setQrCodeBase64(null);
+        Swal.fire("Cancelado", "Pagamento cancelado.", "success");
+      } catch (e) {
+        Swal.fire("Erro", "Erro ao cancelar.", "error");
+      }
+    }
+  };
+
   const handlePayment = async () => {
-    // Validação crítica
     if (!paymentMethod) {
-      console.error('❌ Método de pagamento não especificado!');
-      setErrorMessage('Por favor, selecione a forma de pagamento (PIX, Débito ou Crédito)');
-      setStatus('error');
-      setTimeout(() => setStatus('idle'), 3000);
+      setErrorMessage("Selecione a forma de pagamento");
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 3000);
       return;
     }
-
-    if (!currentUser) {
-      console.error('❌ Usuário não autenticado!');
-      return;
-    }
-
-    // Direciona para função específica
-    if (paymentMethod === "pix") {
-      await handlePixPayment();
-    } else {
-      await handleCardPayment();
-    }
+    if (paymentMethod === "pix") await handlePixPayment();
+    else await handleCardPayment();
   };
+
+  // --- Renderização ---
 
   if (status === "success") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-green-50 p-4 animate-fade-in-down">
         <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-md w-full">
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg
-              className="w-12 h-12 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={3}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+            <span className="text-4xl">✅</span>
           </div>
           <h2 className="text-3xl font-bold text-green-800 mb-2">
             Pagamento Aprovado!
           </h2>
           <p className="text-stone-600 text-lg mb-6">
-            Seu pedido foi enviado para a cozinha.
+            Pedido enviado para a cozinha.
           </p>
-          <p className="text-sm text-stone-400">
-            Redirecionando em instantes...
-          </p>
+          <p className="text-sm text-stone-400">Redirecionando...</p>
         </div>
       </div>
     );
@@ -443,7 +324,6 @@ const PaymentPage: React.FC = () => {
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Resumo do Pedido */}
         <div className="bg-white p-6 rounded-2xl shadow-lg h-fit">
           <h2 className="text-xl font-bold text-stone-800 mb-4 border-b pb-2">
             Resumo do Pedido
@@ -468,12 +348,10 @@ const PaymentPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Seleção de Método */}
         <div className="flex flex-col gap-4">
           <h2 className="text-xl font-bold text-stone-800">
             Escolha a forma de pagamento:
           </h2>
-
           <PaymentOption
             label="Cartão de Crédito"
             icon="💳"
@@ -493,45 +371,25 @@ const PaymentPage: React.FC = () => {
             onClick={() => setPaymentMethod("pix")}
           />
 
-          {/* Mensagem de Status ou QR Code PIX */}
           {status === "processing" && !qrCodeBase64 && (
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded animate-pulse">
-              <p className="text-blue-800 font-semibold text-center">
-                {paymentStatusMessage}
-              </p>
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded animate-pulse text-center text-blue-800 font-semibold">
+              {paymentStatusMessage}
             </div>
           )}
 
-          {/* QR Code PIX */}
           {status === "processing" && qrCodeBase64 && (
-            <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-300 p-6 rounded-2xl shadow-xl animate-fade-in-down">
-              <h3 className="text-center text-purple-900 font-bold text-xl mb-4 flex items-center justify-center gap-2">
-                💠 Pague com PIX
+            <div className="bg-white p-6 rounded-2xl shadow-xl border-2 border-purple-300 text-center">
+              <h3 className="text-purple-900 font-bold text-xl mb-4">
+                Pague com PIX
               </h3>
-              
-              {/* QR Code */}
-              <div className="bg-white p-4 rounded-xl shadow-lg mx-auto w-fit mb-4">
-                <img 
-                  src={`data:image/png;base64,${qrCodeBase64}`} 
-                  alt="QR Code PIX" 
-                  className="w-64 h-64 mx-auto"
-                />
-              </div>
-
-              {/* Instruções */}
-              <div className="text-center space-y-2">
-                <p className="text-purple-800 font-semibold animate-pulse">
-                  {paymentStatusMessage}
-                </p>
-                <div className="text-sm text-purple-600 space-y-1">
-                  <p>📱 Abra o app do seu banco</p>
-                  <p>📷 Escaneie o QR Code</p>
-                  <p>✅ Confirme o pagamento</p>
-                </div>
-                <p className="text-xs text-purple-400 mt-4">
-                  Aguardando confirmação...
-                </p>
-              </div>
+              <img
+                src={`data:image/png;base64,${qrCodeBase64}`}
+                alt="QR Code"
+                className="w-64 h-64 mx-auto mb-4"
+              />
+              <p className="text-purple-600 text-sm">
+                Escaneie com o app do seu banco
+              </p>
             </div>
           )}
 
@@ -541,11 +399,10 @@ const PaymentPage: React.FC = () => {
             </div>
           )}
 
-          {/* Botão de Pagamento ou Cancelar */}
           {status === "processing" ? (
             <button
               onClick={handleCancelPayment}
-              className="mt-4 w-full py-4 rounded-xl font-bold text-xl transition-all transform shadow-lg bg-red-600 text-white hover:bg-red-700 hover:scale-105"
+              className="mt-4 w-full py-4 rounded-xl font-bold text-xl bg-red-600 text-white hover:bg-red-700 shadow-lg transition-transform hover:scale-105"
             >
               ❌ Cancelar Pagamento
             </button>
@@ -553,7 +410,7 @@ const PaymentPage: React.FC = () => {
             <button
               onClick={handlePayment}
               disabled={!paymentMethod}
-              className={`mt-4 w-full py-4 rounded-xl font-bold text-xl transition-all transform shadow-lg ${
+              className={`mt-4 w-full py-4 rounded-xl font-bold text-xl shadow-lg transition-transform ${
                 !paymentMethod
                   ? "bg-stone-300 text-stone-500 cursor-not-allowed"
                   : "bg-green-600 text-white hover:bg-green-700 hover:scale-105"
@@ -568,7 +425,6 @@ const PaymentPage: React.FC = () => {
   );
 };
 
-// Componente visual para os botões de seleção
 const PaymentOption: React.FC<{
   label: string;
   icon: string;
@@ -577,12 +433,11 @@ const PaymentOption: React.FC<{
 }> = ({ label, icon, selected, onClick }) => (
   <button
     onClick={onClick}
-    className={`p-4 rounded-xl border-2 flex items-center gap-4 transition-all duration-200 text-left
-      ${
-        selected
-          ? "border-amber-500 bg-amber-50 shadow-md transform scale-102"
-          : "border-stone-200 bg-white hover:border-amber-300 hover:bg-stone-50"
-      }`}
+    className={`p-4 rounded-xl border-2 flex items-center gap-4 transition-all duration-200 text-left ${
+      selected
+        ? "border-amber-500 bg-amber-50 shadow-md transform scale-102"
+        : "border-stone-200 bg-white hover:border-amber-300 hover:bg-stone-50"
+    }`}
   >
     <span className="text-3xl">{icon}</span>
     <span
