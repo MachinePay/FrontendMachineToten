@@ -2,14 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Lista de vídeos disponíveis na pasta public/videos
-const LOCAL_VIDEOS = [
-  '/videos/videoscreensave.mp4',
+// Vídeos hospedados no Cloudinary
+const CLOUD_VIDEOS = [
+  // Vídeo Principal (Promocional)
+  'https://res.cloudinary.com/dol86yfg6/video/upload/v1764257463/Quero_um_video_202511271230_fum0b_jb2jnr.mp4',
+  // Produtos em destaque (opcional, para variar a tela de descanso)
+  'https://res.cloudinary.com/dol86yfg6/video/upload/v1764178446/PastelDeCarne_vf8pez.mp4',
+  'https://res.cloudinary.com/dol86yfg6/video/upload/v1764178443/PastelDeNutellaComMorango_gha4ao.mp4'
 ];
 
 export default function ScreensaverPage() {
   const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
-  const [videos] = useState<string[]>(LOCAL_VIDEOS);
+  const [videos] = useState<string[]>(CLOUD_VIDEOS);
   const [videoError, setVideoError] = useState(false);
   const intervalRef = useRef<any>(null);
 
