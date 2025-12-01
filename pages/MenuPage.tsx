@@ -97,7 +97,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 // ==========================================
-// 2. COMPONENTE: CART SIDEBAR (Desktop Only)
+// 2. COMPONENTE: CART SIDEBAR (Desktop + Mobile Drawer)
 // ==========================================
 interface CartSidebarProps {
   cartItems: CartItem[];
@@ -106,6 +106,10 @@ interface CartSidebarProps {
   onCheckout: () => void;
   isPlacingOrder: boolean;
   cartSuggestion?: string;
+  isMobile?: boolean;
+  onClose?: () => void;
+  menu: Product[]; // Recebe o menu completo para achar o produto sugerido
+  onAddToCart: (product: Product) => void; // Função para adicionar a sugestão
 }
 
 const CartSidebar: React.FC<CartSidebarProps> = ({
@@ -115,18 +119,59 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   onCheckout,
   isPlacingOrder,
   cartSuggestion,
+  isMobile = false,
+  onClose,
+  menu,
+  onAddToCart,
 }) => {
+  // Sem fundo preto (backdrop) no mobile, apenas uma sombra forte para separar
+  const containerClass = isMobile
+    ? "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.3)] flex flex-col max-h-[85vh] transition-transform duration-300 ease-out transform translate-y-0 border-t border-stone-200"
+    : "flex flex-col h-full bg-white border-l border-stone-200";
+
+  // Lógica para encontrar o produto sugerido dentro do texto da IA
+  const suggestedProduct = useMemo(() => {
+    if (!cartSuggestion || !menu) return null;
+    // Tenta encontrar um produto cujo nome esteja contido no texto da sugestão
+    // Ex: "Que tal uma Coca-Cola?" -> encontra o produto "Coca-Cola Lata"
+    return menu.find(
+      (p) =>
+        cartSuggestion.toLowerCase().includes(p.name.toLowerCase()) ||
+        (p.name.toLowerCase().includes("coca") &&
+          cartSuggestion.toLowerCase().includes("coca"))
+    );
+  }, [cartSuggestion, menu]);
+
   return (
-    <div className="flex flex-col h-full bg-white border-l border-stone-200">
+    <div className={containerClass}>
       {/* Header do Carrinho */}
-      <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-white">
-        <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
-          <span>🛒</span> Seu Pedido
+      <div
+        className={`p-4 flex items-center justify-between ${
+          isMobile
+            ? "bg-stone-900 text-white rounded-t-3xl"
+            : "bg-white border-b border-stone-100"
+        }`}
+      >
+        <h2
+          className={`text-xl font-bold flex items-center gap-2 ${
+            isMobile ? "text-white" : "text-amber-800"
+          }`}
+        >
+          <span>🛒</span> Minha Cesta (
+          {cartItems.reduce((acc, i) => acc + i.quantity, 0)})
         </h2>
+        {isMobile && onClose && (
+          <button
+            onClick={onClose}
+            className="text-stone-400 hover:text-white bg-stone-800 p-1 rounded-full w-8 h-8 flex items-center justify-center"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
-      {/* Lista de Itens */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50">
+      {/* Lista de Itens com Scroll */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50 min-h-0">
         {cartItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-stone-400">
             <span className="text-4xl mb-2">🛍️</span>
@@ -134,37 +179,80 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
           </div>
         ) : (
           <>
+            {/* SUGESTÃO DE UPSELL COM BOTÃO DE AÇÃO */}
             {cartSuggestion && (
-              <div className="p-3 bg-amber-100 border border-amber-300 rounded-lg text-xs md:text-sm text-amber-900 mb-2 animate-pulse">
-                💡 {cartSuggestion}
+              <div className="p-4 bg-gradient-to-r from-amber-100 to-orange-100 border-l-4 border-amber-500 rounded-lg shadow-sm mb-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">✨</span>
+                    <div>
+                      <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">
+                        Dica do Chef
+                      </p>
+                      <p className="text-sm text-amber-900 font-medium leading-tight">
+                        {cartSuggestion}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Se identificarmos o produto sugerido, mostra o botão */}
+                  {suggestedProduct && (
+                    <div className="mt-2 ml-10 flex items-center gap-3 bg-white/50 p-2 rounded-lg border border-amber-200/50">
+                      {/* Miniatura Opcional */}
+                      <div className="hidden xs:block w-10 h-10 bg-gray-200 rounded overflow-hidden shrink-0">
+                        <video
+                          src={suggestedProduct.videoUrl}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-amber-900 truncate">
+                          {suggestedProduct.name}
+                        </p>
+                        <p className="text-xs text-amber-700">
+                          R$ {suggestedProduct.price.toFixed(2)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => onAddToCart(suggestedProduct)}
+                        className="bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-lg shadow hover:bg-amber-700 transition-colors whitespace-nowrap"
+                      >
+                        + Adicionar
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+
             {cartItems.map((item) => (
               <div
                 key={item.id}
-                className="flex bg-white p-3 rounded-lg shadow-sm border border-stone-100"
+                className="flex bg-white p-3 rounded-lg shadow-sm border border-stone-100 items-center justify-between"
               >
-                <div className="flex-1">
-                  <p className="font-semibold text-stone-800 text-sm">
+                <div className="flex-1 pr-2">
+                  <p className="font-semibold text-stone-800 text-sm leading-tight">
                     {item.name}
                   </p>
-                  <p className="text-xs text-stone-500">
+                  <p className="text-xs text-stone-500 mt-1">
                     R$ {item.price.toFixed(2)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-0 border border-stone-200 rounded-lg overflow-hidden h-8">
                   <button
                     onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    className="w-6 h-6 flex items-center justify-center bg-stone-200 rounded text-stone-600 font-bold"
+                    className="w-8 h-full flex items-center justify-center bg-stone-100 text-stone-600 font-bold hover:bg-stone-200 transition-colors"
                   >
                     -
                   </button>
-                  <span className="w-4 text-center text-sm font-bold">
+                  <span className="w-8 h-full flex items-center justify-center text-sm font-bold bg-white border-x border-stone-100">
                     {item.quantity}
                   </span>
                   <button
                     onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="w-6 h-6 flex items-center justify-center bg-amber-500 text-white rounded font-bold"
+                    className="w-8 h-full flex items-center justify-center bg-amber-500 text-white font-bold hover:bg-amber-600 transition-colors"
                   >
                     +
                   </button>
@@ -187,9 +275,16 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
           <button
             onClick={onCheckout}
             disabled={isPlacingOrder}
-            className="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-colors disabled:bg-stone-300 shadow-lg active:scale-[0.98]"
+            className="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-colors disabled:bg-stone-300 shadow-lg active:scale-[0.98] flex justify-center items-center gap-2"
           >
-            {isPlacingOrder ? "Processando..." : "Pagar Agora"}
+            {isPlacingOrder ? (
+              "Processando..."
+            ) : (
+              <>
+                <span>Finalizar Compra</span>
+                <span>➜</span>
+              </>
+            )}
           </button>
         </div>
       )}
@@ -198,7 +293,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 };
 
 // ==========================================
-// 3. COMPONENTE: CATEGORY SIDEBAR (Fixa Esquerda)
+// 3. COMPONENTE: CATEGORY SIDEBAR
 // ==========================================
 interface CategorySidebarProps {
   categories: string[];
@@ -215,7 +310,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
     <aside className="w-[85px] md:w-64 bg-white z-40 flex flex-col h-full border-r border-stone-200 shadow-xl overflow-hidden shrink-0">
       {/* Logo Area */}
       <div className="h-16 md:h-24 flex items-center justify-center border-b border-stone-100 bg-amber-500">
-        <span className="md:hidden text-3xl">🍔</span> {/* Logo Mobile */}
+        <span className="md:hidden text-3xl">🍔</span>
         <h1 className="hidden md:block text-2xl font-extrabold text-white tracking-wide">
           MENU
         </h1>
@@ -223,7 +318,6 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
       {/* Menu Items Container */}
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-hide gap-4 pb-20">
-        {/* Botão TODOS */}
         <button
           onClick={() => onSelectCategory(null)}
           className={`w-full py-4 px-1 md:px-6 flex flex-col md:flex-row items-center md:justify-start gap-1 md:gap-4 transition-all duration-200 border-l-4 ${
@@ -244,7 +338,6 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
         <div className="my-2 border-t border-stone-100 mx-4"></div>
 
-        {/* Categorias Dinâmicas */}
         {categories.map((category) => {
           const isSelected = selectedCategory === category;
           let icon = "🍽️";
@@ -299,8 +392,8 @@ const MenuPage: React.FC = () => {
   const [isChefLoading, setIsChefLoading] = useState<boolean>(false);
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
-  // Controle de UI
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { currentUser } = useAuth();
@@ -308,7 +401,6 @@ const MenuPage: React.FC = () => {
     useCart();
   const navigate = useNavigate();
 
-  // --- Buscas de Dados ---
   const fetchMenuData = async () => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/menu`);
@@ -392,15 +484,15 @@ const MenuPage: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-stone-100 overflow-hidden font-sans">
-      {/* 1. SIDEBAR ESQUERDA (Navegação - Sempre visível) */}
+      {/* 1. SIDEBAR ESQUERDA */}
       <CategorySidebar
         categories={Object.keys(categorizedMenu).sort()}
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
       />
 
-      {/* 2. ÁREA CENTRAL (Produtos - Scrollável) */}
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden pb-40">
+      {/* 2. ÁREA CENTRAL */}
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden">
         {/* Header Mobile */}
         <header className="md:hidden bg-white/90 backdrop-blur-md p-3 sticky top-0 z-20 border-b border-stone-200 shadow-sm flex justify-between items-center">
           <h2 className="font-bold text-amber-800 text-lg">
@@ -411,7 +503,7 @@ const MenuPage: React.FC = () => {
           </div>
         </header>
 
-        {/* Scroll Container - Importante: pb-48 para o carrinho não cobrir o último item */}
+        {/* Scroll Container */}
         <div className="flex-1 overflow-y-auto p-3 md:p-6 pb-48 md:pb-6 scroll-smooth">
           {/* Mensagens IA */}
           <div className="max-w-5xl mx-auto space-y-4 mb-6">
@@ -484,56 +576,32 @@ const MenuPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. MOBILE BOTTOM CART (O CARRINHO FIXO NO RODAPÉ) */}
-        {cartItems.length > 0 && (
+        {/* 3. MOBILE BOTTOM CART (FIXO - BARRA) */}
+        {cartItems.length > 0 && !isMobileCartOpen && (
           <div
             className="xl:hidden fixed bottom-0 right-0 z-50 flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.2)]"
             style={{ width: "calc(100% - 85px)" }}
           >
-            {/* Faixa Preta Superior - Título */}
-            <div className="bg-stone-900 text-white px-4 py-2 flex justify-between items-center rounded-tl-xl">
-              <span className="text-xs font-bold uppercase tracking-wider">
-                Minha Cesta ({cartItems.reduce((acc, i) => acc + i.quantity, 0)}
-                )
+            <div
+              className="bg-stone-900 text-white px-4 py-3 flex justify-between items-center rounded-tl-xl cursor-pointer active:bg-stone-800 transition-colors"
+              onClick={() => setIsMobileCartOpen(true)}
+            >
+              <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                <span>🛒</span> Minha Cesta (
+                {cartItems.reduce((acc, i) => acc + i.quantity, 0)})
+                <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full ml-1 animate-pulse">
+                  ▲ Ver
+                </span>
               </span>
-              <span className="text-xs text-stone-400">Comer aqui</span>
-            </div>
-
-            {/* Corpo do Carrinho - Resumo e Botões */}
-            <div className="bg-white p-3 border-t border-stone-200">
-              {/* Resumo do último item (Opcional, para ficar igual a imagem) */}
-              {cartItems.length > 0 && (
-                <div className="mb-3 text-xs text-stone-600 flex justify-between border-b border-stone-100 pb-2">
-                  <span className="truncate max-w-[60%] font-semibold">
-                    {cartItems[cartItems.length - 1].name}...
-                  </span>
-                  <span>R$ {cartTotal.toFixed(2)}</span>
-                </div>
-              )}
-
-              {/* Botões de Ação */}
-              <div className="flex gap-3 h-10">
-                <button
-                  onClick={() => {
-                    if (confirm("Deseja cancelar o pedido?")) clearCart();
-                  }}
-                  className="bg-stone-200 text-stone-600 px-4 rounded font-bold text-xs uppercase flex-1 hover:bg-stone-300 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleCheckout}
-                  className="bg-amber-500 text-white px-4 rounded font-bold text-xs uppercase flex-[2] hover:bg-amber-600 transition-colors shadow-md"
-                >
-                  Finalizar Compra
-                </button>
-              </div>
+              <span className="text-sm font-bold text-amber-400">
+                R$ {cartTotal.toFixed(2)}
+              </span>
             </div>
           </div>
         )}
       </main>
 
-      {/* 4. COLUNA DIREITA (Carrinho Desktop - Mantido) */}
+      {/* 4. COLUNA DIREITA (Carrinho Desktop) */}
       <div className="hidden xl:block w-96 h-full shadow-xl z-20">
         <CartSidebar
           cartItems={cartItems}
@@ -542,8 +610,34 @@ const MenuPage: React.FC = () => {
           onCheckout={handleCheckout}
           isPlacingOrder={isPlacingOrder}
           cartSuggestion={cartSuggestion}
+          menu={menu}
+          onAddToCart={addToCart}
         />
       </div>
+
+      {/* 5. DRAWER MOBILE EXPANDIDO (COM OVERLAY TRANSPARENTE QUE FECHA) */}
+      {isMobileCartOpen && (
+        <>
+          {/* Overlay Transparente para capturar o clique fora */}
+          <div
+            className="fixed inset-0 z-40 bg-transparent"
+            onClick={() => setIsMobileCartOpen(false)}
+          />
+
+          <CartSidebar
+            cartItems={cartItems}
+            cartTotal={cartTotal}
+            updateQuantity={updateQuantity}
+            onCheckout={handleCheckout}
+            isPlacingOrder={isPlacingOrder}
+            cartSuggestion={cartSuggestion}
+            isMobile={true}
+            onClose={() => setIsMobileCartOpen(false)}
+            menu={menu}
+            onAddToCart={addToCart}
+          />
+        </>
+      )}
     </div>
   );
 };
