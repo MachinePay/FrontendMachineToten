@@ -1,109 +1,130 @@
-// Importa React e componentes de roteamento do react-router-dom
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import Swal from 'sweetalert2';
-// Importa o contexto de autenticação personalizado
-import { useAuth } from '../contexts/AuthContext';
-import { useCart } from '../contexts/CartContext';
+import React from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import Chatbot from "./Chatbot"; // Importação adicionada
 
-// Define o componente Header como um componente funcional React com tipagem TypeScript
 const Header: React.FC = () => {
-  // Obtém o usuário atual e a função de logout do contexto de autenticação
   const { currentUser, logout } = useAuth();
-  const { clearCart } = useCart();
-  // Hook para navegar entre rotas
   const navigate = useNavigate();
 
-  // Função que faz logout e redireciona para a página inicial
-  const handleLogout = async () => {
-    // Verifica se está na página de pagamento
-    const isOnPaymentPage = window.location.hash.includes('/payment');
-    
-    if (isOnPaymentPage) {
-      const result = await Swal.fire({
-        title: '⚠️ Você está na tela de pagamento!',
-        html: 'Se houver um pagamento em andamento, ele será <strong>cancelado automaticamente</strong>.<br><br>Deseja continuar?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sim, sair',
-        cancelButtonText: 'Cancelar',
-        reverseButtons: true
-      });
-      
-      if (!result.isConfirmed) {
-        return; // Cancela o logout
-      }
-    }
-    
-    clearCart(); // Limpa o carrinho antes de logout
-    await logout();
-    navigate('/');
+  const handleLogout = () => {
+    logout();
+    navigate("/");
   };
 
-  // Define o estilo para links ativos (Cardápio, Cozinha, Admin)
   const activeLinkStyle = {
-    color: '#a16207', // cor âmbar escuro
-    textDecoration: 'underline',
-    textUnderlineOffset: '4px',
+    color: "#d97706", // amber-600
+    fontWeight: 600,
   };
 
   return (
-    // Header sticky no topo da página com sombra
-    <header className="bg-white shadow-md sticky top-0 z-50">
-      {/* Container centralizado com padding responsivo */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Flexbox para alinhar logo, navegação e user info */}
-        <div className="flex items-center justify-between h-16">
-          {/* Logo/Título - redireciona para menu se logado, senão para home */}
-          <div className="flex-shrink-0">
-             <NavLink to={currentUser ? "/menu" : "/"} className="text-2xl font-bold text-amber-600">
-              Pastelaria Kiosk Pro
+    <header className="bg-white/90 backdrop-blur-md border-b border-stone-200 sticky top-0 z-50 h-16">
+      <div className="container mx-auto px-4 h-full flex items-center justify-between">
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <NavLink
+            to={currentUser ? "/menu" : "/"}
+            className="flex items-center gap-2 group"
+          >
+            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-white text-xl shadow-sm group-hover:scale-105 transition-transform">
+              🥟
+            </div>
+            <span className="text-xl font-bold text-stone-800 tracking-tight">
+              Kiosk<span className="text-amber-600">Pro</span>
+            </span>
+          </NavLink>
+        </div>
+
+        {/* Navegação Central (Desktop) */}
+        <nav className="hidden md:flex items-center gap-8">
+          {currentUser &&
+            (!currentUser.role || currentUser.role === "customer") && (
+              <NavLink
+                to="/menu"
+                style={({ isActive }) =>
+                  isActive ? activeLinkStyle : undefined
+                }
+                className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
+              >
+                Cardápio
+              </NavLink>
+            )}
+
+          {currentUser?.role === "kitchen" && (
+            <NavLink
+              to="/cozinha"
+              style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+              className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
+            >
+              Pedidos Cozinha
             </NavLink>
-          </div>
-          
-          {/* Navegação - visível apenas em telas médias e maiores */}
-          <nav className="hidden md:flex items-center space-x-6">
-            {/* Mostra links apenas para usuários clientes (não cozinha/admin) */}
-            {currentUser && (!currentUser.role || currentUser.role === "customer") && (
-              <>
-                <NavLink to="/menu" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Cardápio</NavLink>
-              </>
-            )}
-            {/* Links especiais para cozinha - só aparece se for usuário cozinha */}
-            {currentUser && currentUser.role === "kitchen" && (
-              <>
-                <NavLink to="/cozinha" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Pedidos</NavLink>
-              </>
-            )}
-            {/* Links especiais para admin - só aparece se for usuário admin */}
-            {currentUser && currentUser.role === "admin" && (
-              <>
-                <NavLink to="/admin" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Painel Admin</NavLink>
-                <NavLink to="/admin/reports" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Recomendações IA</NavLink>
-              </>
-            )}
-          </nav>
-          
-          {/* Seção direita - mostra saudação e botão de logout ou mensagem de boas-vindas */}
-          <div className="flex items-center">
-            {currentUser ? (
-              // Se usuário autenticado: mostra nome e botão de logout
-              <div className="flex items-center space-x-4">
-                <span className="text-stone-700">Olá, {currentUser.name}!</span>
+          )}
+
+          {currentUser?.role === "admin" && (
+            <>
+              <NavLink
+                to="/admin"
+                style={({ isActive }) =>
+                  isActive ? activeLinkStyle : undefined
+                }
+                className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
+              >
+                Produtos
+              </NavLink>
+              <NavLink
+                to="/admin/reports"
+                style={({ isActive }) =>
+                  isActive ? activeLinkStyle : undefined
+                }
+                className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
+              >
+                Relatórios IA
+              </NavLink>
+            </>
+          )}
+        </nav>
+
+        {/* Área do Usuário (Direita) */}
+        <div className="flex items-center gap-4">
+          {currentUser ? (
+            <>
+              {/* Chatbot agora mora aqui no Header */}
+              <Chatbot />
+
+              <div className="h-6 w-px bg-stone-200 mx-1"></div>
+
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:block text-right leading-tight">
+                  <p className="text-xs text-stone-400 font-medium">Olá,</p>
+                  <p className="text-sm font-bold text-stone-700 max-w-[100px] truncate">
+                    {currentUser.name}
+                  </p>
+                </div>
                 <button
                   onClick={handleLogout}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-transform transform hover:scale-105"
+                  className="text-stone-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-all"
+                  title="Sair"
                 >
-                  Sair
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                    />
+                  </svg>
                 </button>
               </div>
-            ) : (
-                // Se não autenticado: mostra mensagem de boas-vindas
-                <div className="text-stone-600">Bem-vindo!</div>
-            )}
-          </div>
+            </>
+          ) : (
+            <span className="text-sm text-stone-500">Bem-vindo!</span>
+          )}
         </div>
       </div>
     </header>

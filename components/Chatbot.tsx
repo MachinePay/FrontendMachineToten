@@ -2,172 +2,187 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { sendMessageToChatbot, startChat } from "../services/geminiService";
 import { useAuth } from "../contexts/AuthContext";
 
-// Interface que define a estrutura de uma mensagem
 interface Message {
-  sender: "user" | "bot"; // Quem enviou: usuário ou bot
-  text: string; // Conteúdo da mensagem
+  sender: "user" | "bot";
+  text: string;
 }
 
-// Componente principal do Chatbot
 const Chatbot: React.FC = () => {
-  // Estado para controlar se o chatbot está aberto ou fechado
   const [isOpen, setIsOpen] = useState(false);
-  // Lista de mensagens da conversa
   const [messages, setMessages] = useState<Message[]>([]);
-  // Texto digitado pelo usuário no input
   const [userInput, setUserInput] = useState("");
-  // Estado para indicar se está aguardando resposta do bot
   const [isLoading, setIsLoading] = useState(false);
-  // Obtém o usuário autenticado do contexto
   const { currentUser } = useAuth();
-  // Referência para scroll automático até o fim das mensagens
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Executa uma única vez ao montar o componente
   useEffect(() => {
-    startChat(); // Inicia a sessão de chat
-    // Adiciona mensagem inicial de boas-vindas do bot
-    setMessages([{ sender: "bot", text: "Olá! Como posso ajudar você hoje?" }]);
-  }, []);
+    if (isOpen && messages.length === 0) {
+      startChat();
+      setMessages([
+        {
+          sender: "bot",
+          text: `Olá ${
+            currentUser?.name || ""
+          }! Como posso ajudar com seu pedido hoje?`,
+        },
+      ]);
+    }
+  }, [isOpen, currentUser]);
 
-  // Função para fazer scroll automático até o final das mensagens
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Executa scroll sempre que há novas mensagens
-  useEffect(scrollToBottom, [messages]);
+  useEffect(scrollToBottom, [messages, isOpen]);
 
-  // Função para enviar mensagem (otimizada com useCallback)
   const handleSendMessage = useCallback(
     async (e?: React.FormEvent<HTMLFormElement>) => {
-      e?.preventDefault(); // Previne reload da página
-      // Valida se há texto e não está carregando
+      e?.preventDefault();
       if (!userInput.trim() || isLoading) return;
 
-      // Cria e adiciona mensagem do usuário
       const userMessage: Message = { sender: "user", text: userInput };
       setMessages((prev) => [...prev, userMessage]);
-      setUserInput(""); // Limpa o input
-      setIsLoading(true); // Ativa estado de carregamento
+      setUserInput("");
+      setIsLoading(true);
 
-      // Envia mensagem para o serviço e recebe resposta do bot
       const botResponse = await sendMessageToChatbot(userInput);
 
-      // Cria e adiciona resposta do bot
       const botMessage: Message = { sender: "bot", text: botResponse };
       setMessages((prev) => [...prev, botMessage]);
-      setIsLoading(false); // Desativa estado de carregamento
+      setIsLoading(false);
     },
     [userInput, isLoading]
   );
 
-  // Se não há usuário autenticado, não renderiza nada
   if (!currentUser) return null;
 
   return (
-    <>
-      {/* Botão flutuante para abrir/fechar o chatbot */}
-      <div className="fixed bottom-5 right-5 z-50">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="bg-amber-600 text-white rounded-full p-4 shadow-lg hover:bg-amber-700 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
-          aria-label="Open chatbot"
+    <div className="relative">
+      {/* Botão do Header */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`p-2 rounded-full transition-all duration-200 flex items-center gap-2 ${
+          isOpen
+            ? "bg-amber-100 text-amber-700"
+            : "text-stone-500 hover:bg-stone-100 hover:text-amber-600"
+        }`}
+        title="Ajuda com IA"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
         >
-          {/* Ícone de chat */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-8 w-8"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8.5z"></path>
-          </svg>
-        </button>
-      </div>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+          />
+        </svg>
+        <span className="hidden md:inline text-sm font-medium">Ajuda</span>
+      </button>
 
-      {/* Janela do chatbot (aparece quando isOpen é true) */}
+      {/* Janela do Chat (Dropdown) */}
       {isOpen && (
-        <div className="fixed bottom-20 right-5 w-80 h-96 bg-white rounded-lg shadow-2xl flex flex-col z-50 transform transition-all duration-300 ease-out origin-bottom-right scale-100">
-          {/* Cabeçalho do chatbot */}
-          <div className="bg-amber-600 text-white p-3 rounded-t-lg">
-            <h3 className="font-semibold text-center">Atendente Virtual</h3>
-          </div>
+        <>
+          {/* Overlay invisível para fechar ao clicar fora */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+          />
 
-          {/* Área de mensagens */}
-          <div className="flex-1 p-4 overflow-y-auto bg-stone-50">
-            {/* Renderiza cada mensagem da conversa */}
-            {messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`flex my-2 ${
-                  msg.sender === "user" ? "justify-end" : "justify-start"
-                }`}
+          <div className="absolute right-0 top-12 w-80 sm:w-96 h-[500px] bg-white rounded-xl shadow-2xl flex flex-col z-50 border border-stone-200 overflow-hidden animate-fade-in-down origin-top-right">
+            {/* Cabeçalho */}
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                  🤖
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm">Atendente Virtual</h3>
+                  <p className="text-xs text-amber-100">Kiosk Pro AI</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1"
               >
+                ✕
+              </button>
+            </div>
+
+            {/* Área de mensagens */}
+            <div className="flex-1 p-4 overflow-y-auto bg-stone-50 scrollbar-thin">
+              {messages.map((msg, index) => (
                 <div
-                  className={`rounded-lg px-3 py-2 max-w-xs shadow ${
-                    msg.sender === "user"
-                      ? "bg-amber-200 text-amber-900"
-                      : "bg-stone-200 text-stone-800"
+                  key={index}
+                  className={`flex mb-3 ${
+                    msg.sender === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-
-            {/* Indicador de carregamento (animação de pontos) */}
-            {isLoading && (
-              <div className="flex justify-start my-2">
-                <div className="rounded-lg px-3 py-2 max-w-xs shadow bg-stone-200 text-stone-800">
-                  <div className="flex items-center space-x-1">
-                    <span className="h-2 w-2 bg-stone-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                    <span className="h-2 w-2 bg-stone-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                    <span className="h-2 w-2 bg-stone-500 rounded-full animate-bounce"></span>
+                  <div
+                    className={`rounded-2xl px-4 py-2 max-w-[85%] text-sm shadow-sm ${
+                      msg.sender === "user"
+                        ? "bg-amber-500 text-white rounded-br-none"
+                        : "bg-white text-stone-700 border border-stone-100 rounded-bl-none"
+                    }`}
+                  >
+                    {msg.text}
                   </div>
                 </div>
-              </div>
-            )}
+              ))}
 
-            {/* Referência para scroll automático */}
-            <div ref={messagesEndRef} />
-          </div>
+              {isLoading && (
+                <div className="flex justify-start mb-3">
+                  <div className="bg-white border border-stone-100 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce"></span>
+                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
 
-          {/* Formulário de entrada de mensagem */}
-          <form onSubmit={handleSendMessage} className="p-2 border-t flex">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              placeholder="Digite sua mensagem..."
-              className="flex-1 px-3 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-              disabled={isLoading} // Desabilita enquanto aguarda resposta
-            />
-            {/* Botão de envio com ícone de seta */}
-            <button
-              type="submit"
-              className="bg-amber-600 text-white px-4 rounded-r-md hover:bg-amber-700 disabled:bg-amber-300"
-              disabled={isLoading}
+            {/* Input */}
+            <form
+              onSubmit={handleSendMessage}
+              className="p-3 bg-white border-t border-stone-100"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                ></path>
-              </svg>
-            </button>
-          </form>
-        </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  placeholder="Digite sua dúvida..."
+                  className="flex-1 px-4 py-2 bg-stone-100 border-0 rounded-full focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all text-sm"
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  className="bg-amber-500 text-white p-2 rounded-full hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                  disabled={isLoading || !userInput.trim()}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
       )}
-    </>
+    </div>
   );
 };
 

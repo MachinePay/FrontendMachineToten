@@ -193,7 +193,6 @@ const RouterBody: React.FC = () => {
           />
         </Routes>
       </main>
-      {!isScreensaver && <Chatbot />}
     </div>
   );
 };
