@@ -1,34 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" /> <!-- Define a codificação de caracteres como UTF-8 -->
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" /> <!-- Define o ícone da aba do navegador -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <!-- Configura a visualização para dispositivos móveis -->
-    <title>Pastelaria Kiosk Pro</title> <!-- Título da página exibido na aba do navegador -->
-    <script src="https://cdn.tailwindcss.com"></script> <!-- Importa o Tailwind CSS para estilização -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"> <!-- Importa a fonte Poppins do Google Fonts -->
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <link rel="manifest" href="/manifest.json" />
+
+    <title>Pastelaria Kiosk Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
     <style>
       body {
-        font-family: 'Poppins', sans-serif; /* Define a fonte do corpo como Poppins */
+        font-family: "Poppins", sans-serif;
+        /* IMPEDE O "PULL-TO-REFRESH" (PUXAR PRA CIMA) QUE ESTRAGA O KIOSK */
+        overscroll-behavior-y: contain;
+        /* Desabilita seleção de texto para parecer app */
+        user-select: none;
+        -webkit-user-select: none;
       }
+
+      /* Animações existentes */
       @keyframes fade-in-down {
         0% {
-            opacity: 0; /* Começa invisível */
-            transform: translateY(-20px); /* Move para cima */
+          opacity: 0;
+          transform: translateY(-20px);
         }
         100% {
-            opacity: 1; /* Fica visível */
-            transform: translateY(0); /* Retorna à posição original */
+          opacity: 1;
+          transform: translateY(0);
         }
       }
       .animate-fade-in-down {
-        animation: fade-in-down 0.5s ease-out forwards; /* Aplica a animação de fade-in para baixo */
+        animation: fade-in-down 0.5s ease-out forwards;
       }
     </style>
-  <!-- importmap removed: Vite handles module resolution in dev/build -->
-</head>
-  <body class="bg-amber-50"> <!-- Define a cor de fundo do corpo -->
-    <div id="root"></div> <!-- Elemento onde a aplicação React será montada -->
-    <script type="module" src="/index.tsx"></script> <!-- Importa o arquivo TypeScript que contém a aplicação React -->
+  </head>
+  <body class="bg-amber-50">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
