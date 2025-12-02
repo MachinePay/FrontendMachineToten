@@ -90,6 +90,16 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onComplete, isPriority, in
         ))}
       </ul>
 
+      {/* Observação do Cliente */}
+      {order.observation && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm font-bold text-amber-800">📝 Observação:</p>
+          <p className="text-stone-700 font-medium whitespace-pre-wrap">
+            {order.observation}
+          </p>
+        </div>
+      )}
+
       {/* Botão concluir */}
       <button
         onClick={() => onComplete(order.id)}

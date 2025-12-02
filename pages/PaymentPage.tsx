@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query"; // Importação Nova
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
 import { clearPaymentQueue } from "../services/pointService";
-import type { Order } from "../types";
+import type { Order, CartItem } from "../types";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -17,7 +17,7 @@ type ActivePaymentState = {
 } | null;
 
 const PaymentPage: React.FC = () => {
-  const { cartItems, cartTotal, clearCart } = useCart();
+  const { cartItems, cartTotal, clearCart, observation } = useCart();
   const { currentUser, addOrderToHistory, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -136,6 +136,7 @@ const PaymentPage: React.FC = () => {
         })),
         total: cartTotal,
         timestamp: new Date().toISOString(),
+        observation: observation,
         status: "active",
       };
 
@@ -177,6 +178,7 @@ const PaymentPage: React.FC = () => {
         })),
         total: cartTotal,
         paymentId: null,
+        observation: observation,
       }),
     });
     if (!orderResp.ok) throw new Error("Erro ao criar pedido");

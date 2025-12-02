@@ -104,6 +104,8 @@ interface CartSidebarProps {
   onClose?: () => void;
   menu: Product[];
   onAddToCart: (product: Product) => void;
+  observation: string;
+  setObservation: (obs: string) => void;
 }
 
 const CartSidebar: React.FC<CartSidebarProps> = ({
@@ -117,6 +119,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   onClose,
   menu,
   onAddToCart,
+  observation,
+  setObservation,
 }) => {
   const containerClass = isMobile
     ? "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-[0_-10px_60px_rgba(0,0,0,0.4)] flex flex-col max-h-[90vh] transition-transform duration-300 ease-out transform translate-y-0 border-t border-stone-200"
@@ -256,7 +260,24 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
       {/* Footer / Checkout */}
       {cartItems.length > 0 && (
-        <div className="p-6 bg-white border-t border-stone-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="p-5 bg-white border-t border-stone-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+          {/* Campo de Observação */}
+          <div className="mb-4">
+            <label
+              htmlFor="observation"
+              className="block text-sm font-bold text-stone-700 mb-2"
+            >
+              📝 Observações do Pedido
+            </label>
+            <textarea
+              id="observation"
+              value={observation}
+              onChange={(e) => setObservation(e.target.value)}
+              placeholder="Ex: Sem cebola, ponto da carne, etc."
+              className="w-full p-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors"
+              rows={2}
+            />
+          </div>
           <div className="flex justify-between items-center mb-4">
             <span className="text-stone-500 font-bold text-xl">Total</span>
             <span className="text-3xl md:text-4xl font-bold text-stone-800">
@@ -388,8 +409,15 @@ const MenuPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { currentUser } = useAuth();
-  const { cartItems, addToCart, cartTotal, updateQuantity, clearCart } =
-    useCart();
+  const {
+    cartItems,
+    addToCart,
+    cartTotal,
+    updateQuantity,
+    clearCart,
+    observation,
+    setObservation,
+  } = useCart();
   const navigate = useNavigate();
 
   const fetchMenuData = async () => {
@@ -605,6 +633,8 @@ const MenuPage: React.FC = () => {
           cartSuggestion={cartSuggestion}
           menu={menu}
           onAddToCart={addToCart}
+          observation={observation}
+          setObservation={setObservation}
         />
       </div>
 
@@ -627,6 +657,8 @@ const MenuPage: React.FC = () => {
             onClose={() => setIsMobileCartOpen(false)}
             menu={menu}
             onAddToCart={addToCart}
+            observation={observation}
+            setObservation={setObservation}
           />
         </>
       )}
