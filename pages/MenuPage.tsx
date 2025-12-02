@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
@@ -123,6 +123,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   observation,
   setObservation,
 }) => {
+  const [showObservationSaved, setShowObservationSaved] = useState(false);
+  const observationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const containerClass = isMobile
     ? "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-[0_-10px_60px_rgba(0,0,0,0.4)] flex flex-col max-h-[90vh] transition-transform duration-300 ease-out transform translate-y-0 border-t border-stone-200"
     : "flex flex-col h-full bg-white border-l border-stone-200";
@@ -138,6 +141,20 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
     );
   }, [cartSuggestion, menu]);
 
+  const handleObservationChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setObservation(e.target.value);
+    setShowObservationSaved(true);
+
+    if (observationTimeoutRef.current) {
+      clearTimeout(observationTimeoutRef.current);
+    }
+
+    observationTimeoutRef.current = setTimeout(() => {
+      setShowObservationSaved(false);
+    }, 2000); // Oculta a mensagem após 2 segundos
+  };
   return (
     <div className={containerClass}>
       {/* Header do Carrinho */}
@@ -273,11 +290,16 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
             <textarea
               id="observation"
               value={observation}
-              onChange={(e) => setObservation(e.target.value)}
+              onChange={handleObservationChange}
               placeholder="Ex: Sem cebola, ponto da carne, retirar molho..."
               className="w-full p-3 border-2 border-stone-300 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all text-lg"
               rows={2}
             />
+            {showObservationSaved && observation && (
+              <p className="text-xs text-green-600 font-bold mt-1 animate-pulse">
+                ✓ Observação salva!
+              </p>
+            )}
           </div>
 
           <div className="flex justify-between items-center mb-4">

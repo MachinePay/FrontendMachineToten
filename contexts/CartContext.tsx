@@ -142,6 +142,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
         updateQuantity,
         clearCart,
         cartTotal,
+      observation,
+      setObservation,
       }}
     >
       {children}
