@@ -601,7 +601,7 @@ const MenuPage: React.FC = () => {
         {cartItems.length > 0 && !isMobileCartOpen && (
           <div
             className="xl:hidden fixed bottom-0 right-0 z-50 flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.2)]"
-            style={{ width: "calc(100% - 100px)" }}
+            style={{ width: "calc(100% - 100px)", height: "90px" }}
           >
             <div
               className="bg-stone-900 text-white px-10 py-10 flex justify-between items-center rounded-tl-2xl cursor-pointer active:bg-stone-800 transition-colors"
