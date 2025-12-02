@@ -39,6 +39,7 @@ export interface Order {
   total: number;
   timestamp: string;
   status: "active" | "completed";
+  observation?: string;
 }
 
 export type UserRole = "customer" | "kitchen" | "admin";
