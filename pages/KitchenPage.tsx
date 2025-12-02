@@ -113,7 +113,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
             📝 Observação:
           </p>
           <p className="text-sm text-stone-800 font-medium whitespace-pre-wrap italic leading-snug">
-            "{order.observation}"
+            "{order.observation}" bom dia
           </p>
         </div>
       )}
