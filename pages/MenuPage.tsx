@@ -576,17 +576,17 @@ const MenuPage: React.FC = () => {
             style={{ width: "calc(100% - 100px)" }}
           >
             <div
-              className="bg-stone-900 text-white px-6 py-4 flex justify-between items-center rounded-tl-2xl cursor-pointer active:bg-stone-800 transition-colors"
+              className="bg-stone-900 text-white px-6 py-6 flex justify-between items-center rounded-tl-2xl cursor-pointer active:bg-stone-800 transition-colors"
               onClick={() => setIsMobileCartOpen(true)}
             >
-              <span className="text-sm font-bold uppercase tracking-wider flex items-center gap-3">
-                <span className="text-xl">🛒</span> Minha Cesta (
+              <span className="text-lg font-bold uppercase tracking-wider flex items-center gap-3">
+                <span className="text-2xl">🛒</span> Minha Cesta (
                 {cartItems.reduce((acc, i) => acc + i.quantity, 0)})
-                <span className="text-xs bg-amber-500 text-white px-2 py-1 rounded-full ml-1 animate-pulse">
+                <span className="text-sm bg-amber-500 text-white px-2 py-1 rounded-full ml-1 animate-pulse">
                   ▲ Ver
                 </span>
               </span>
-              <span className="text-lg font-bold text-amber-400">
+              <span className="text-2xl font-bold text-amber-400">
                 R$ {cartTotal.toFixed(2)}
               </span>
             </div>
