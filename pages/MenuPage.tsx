@@ -576,7 +576,7 @@ const MenuPage: React.FC = () => {
             style={{ width: "calc(100% - 100px)" }}
           >
             <div
-              className="bg-stone-900 text-white px-6 py-6 flex justify-between items-center rounded-tl-2xl cursor-pointer active:bg-stone-800 transition-colors"
+              className="bg-stone-900 text-white px-10 py-10 flex justify-between items-center rounded-tl-2xl cursor-pointer active:bg-stone-800 transition-colors"
               onClick={() => setIsMobileCartOpen(true)}
             >
               <span className="text-lg font-bold uppercase tracking-wider flex items-center gap-3">
