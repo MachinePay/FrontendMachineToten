@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { Order } from "../types";
 
 // Interface para resposta da IA
@@ -14,11 +14,30 @@ const getWaitingTime = (timestamp: string): number => {
   return Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000); // minutos
 };
 
+// --- Função de Voz (Text-to-Speech) ---
+const speakOrder = (text: string) => {
+  if (!("speechSynthesis" in window)) return;
+
+  // Cancela falas anteriores para não sobrepor
+  window.speechSynthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "pt-BR"; // Português do Brasil
+  utterance.rate = 1.1; // Um pouco mais rápido
+
+  // Tenta encontrar voz brasileira
+  const voices = window.speechSynthesis.getVoices();
+  const brVoice = voices.find((v) => v.lang.includes("pt-BR"));
+  if (brVoice) utterance.voice = brVoice;
+
+  window.speechSynthesis.speak(utterance);
+};
+
 // --- Componente auxiliar para exibir um pedido ---
 interface OrderCardProps {
   order: Order;
   onComplete: (orderId: string) => void;
-  isPriority: boolean; // Primeiro da lista (IA recomenda fazer agora)
+  isPriority: boolean;
   index: number;
 }
 
@@ -31,7 +50,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
   const waitingMinutes = getWaitingTime(order.timestamp);
   const isUrgent = waitingMinutes > 10;
 
-  // Determina cor de fundo
   let bgColor = "bg-white";
   let borderColor = "border-amber-500";
 
@@ -45,16 +63,14 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
   return (
     <div
-      className={`${bgColor} p-6 rounded-xl shadow-lg border-t-4 ${borderColor} relative flex flex-col h-full`}
+      className={`${bgColor} p-6 rounded-xl shadow-lg border-t-4 ${borderColor} relative flex flex-col h-full animate-fade-in-down`}
     >
-      {/* Badge de prioridade */}
       {isPriority && (
         <div className="absolute -top-3 -right-3 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse z-10">
           ⚡ FAZER AGORA
         </div>
       )}
 
-      {/* Badge de urgente */}
       {isUrgent && !isPriority && (
         <div className="absolute -top-3 -right-3 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold z-10">
           🔥 URGENTE
@@ -63,7 +79,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
       <div className="flex justify-between items-start mb-4 border-b border-stone-100 pb-2">
         <div>
-          {/* Número da ordem na fila */}
           <div className="text-xs text-stone-500 font-semibold mb-1 uppercase tracking-wide">
             #{index + 1} na fila
           </div>
@@ -78,7 +93,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
             </p>
           )}
 
-          {/* Tempo de espera */}
           <p
             className={`text-xs font-bold mt-1 ${
               isUrgent ? "text-red-600" : "text-amber-600"
@@ -89,7 +103,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
         </div>
       </div>
 
-      {/* Lista de itens - Flex grow para empurrar o botão para baixo */}
       <ul className="space-y-2 mb-4 flex-grow">
         {order.items.map((item, idx) => (
           <li
@@ -106,7 +119,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
         ))}
       </ul>
 
-      {/* --- OBSERVAÇÃO DO CLIENTE (NOVO) --- */}
+      {/* Observação */}
       {order.observation && (
         <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
           <p className="text-xs font-bold text-yellow-800 uppercase mb-1 flex items-center gap-1">
@@ -118,7 +131,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
         </div>
       )}
 
-      {/* Botão concluir */}
       <button
         onClick={() => onComplete(order.id)}
         className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors shadow-md active:transform active:scale-95"
@@ -129,75 +141,100 @@ const OrderCard: React.FC<OrderCardProps> = ({
   );
 };
 
-// --- Componente principal da página da cozinha com IA ---
+// --- Componente principal ---
 const KitchenPage: React.FC = () => {
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [reasoning, setReasoning] = useState<string>("");
 
+  // Estado do Áudio
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  // Memória para não repetir pedidos que já foram falados
+  const seenOrderIds = useRef<Set<string>>(new Set());
+
   const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-  // Busca pedidos otimizados pela IA
   const fetchOrders = useCallback(async () => {
     try {
-      // console.log('🤖 Buscando pedidos otimizados pela IA...');
-
       const resp = await fetch(`${BACKEND_URL}/api/ai/kitchen-priority`);
       const data: AIKitchenResponse = await resp.json();
 
       setActiveOrders(data.orders);
       setAiEnabled(data.aiEnabled);
       setReasoning(data.reasoning || data.message || "");
+
+      // --- LÓGICA DE ÁUDIO ---
+      if (audioEnabled) {
+        data.orders.forEach((order) => {
+          if (!seenOrderIds.current.has(order.id)) {
+            // Novo pedido detectado!
+            seenOrderIds.current.add(order.id);
+
+            const itemsText = order.items
+              .map((i) => `${i.quantity} ${i.name}`)
+              .join(", e ");
+            const obsText = order.observation
+              ? `. Atenção: ${order.observation}`
+              : "";
+            const speechText = `Novo pedido para ${
+              order.userName || "cliente"
+            }. ${itemsText}${obsText}.`;
+
+            speakOrder(speechText);
+          }
+        });
+      } else {
+        // Se áudio desligado, marca como visto silenciosamente
+        data.orders.forEach((o) => seenOrderIds.current.add(o.id));
+      }
     } catch (err) {
       console.error("❌ Erro ao carregar pedidos:", err);
     } finally {
       setLoading(false);
     }
-  }, [BACKEND_URL]);
+  }, [BACKEND_URL, audioEnabled]);
 
   useEffect(() => {
     fetchOrders();
-    // Polling a cada 12 segundos (conforme especificação: 10-15s)
-    const interval = setInterval(fetchOrders, 12000);
+    const interval = setInterval(fetchOrders, 10000); // 10s polling
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
-  // Função que marca pedido como concluído
   const handleCompleteOrder = async (orderId: string) => {
-    console.log("🔄 Concluindo pedido:", orderId);
-
     try {
-      // Remove do estado imediatamente (feedback visual)
       setActiveOrders((prev) => prev.filter((o) => o.id !== orderId));
-
-      // Chama backend
       const resp = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
         method: "DELETE",
       });
-
-      if (!resp.ok) {
-        console.error("❌ Falha ao concluir pedido");
-        await fetchOrders(); // Resincroniza
-      } else {
-        console.log("✅ Pedido concluído com sucesso");
-      }
+      if (!resp.ok) await fetchOrders();
     } catch (err) {
-      console.error("❌ Erro ao concluir pedido:", err);
-      await fetchOrders(); // Resincroniza
+      await fetchOrders();
     }
   };
 
   return (
     <div className="container mx-auto px-4 py-6 min-h-screen bg-stone-100">
-      {/* Cabeçalho */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-amber-800 mb-4 flex items-center gap-3">
-          <span>🍳</span> Cozinha Inteligente
-        </h1>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+          <h1 className="text-4xl font-bold text-amber-800 flex items-center gap-3">
+            <span>🍳</span> Cozinha Inteligente
+          </h1>
+
+          {/* Botão de Volume */}
+          <button
+            onClick={() => setAudioEnabled(!audioEnabled)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${
+              audioEnabled
+                ? "bg-amber-100 text-amber-800 border-2 border-amber-500"
+                : "bg-stone-300 text-stone-600 hover:bg-stone-400"
+            }`}
+          >
+            {audioEnabled ? <>🔊 Som Ativado</> : <>🔇 Som Desativado</>}
+          </button>
+        </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          {/* Badge de status da IA */}
           {aiEnabled ? (
             <span className="bg-green-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-sm flex items-center gap-2">
               <span>🤖</span> IA Ativa
@@ -208,13 +245,11 @@ const KitchenPage: React.FC = () => {
             </span>
           )}
 
-          {/* Contador de pedidos */}
           <span className="bg-amber-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-sm">
             {activeOrders.length} pedido{activeOrders.length !== 1 ? "s" : ""}
           </span>
         </div>
 
-        {/* Reasoning da IA */}
         {reasoning && (
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg shadow-sm max-w-4xl">
             <p className="text-sm font-medium text-blue-900 leading-relaxed">
@@ -227,7 +262,6 @@ const KitchenPage: React.FC = () => {
         )}
       </div>
 
-      {/* Conteúdo principal */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-600 mb-4"></div>
@@ -247,9 +281,8 @@ const KitchenPage: React.FC = () => {
             <OrderCard
               key={order.id}
               order={order}
-              observation={order.observation}
               onComplete={handleCompleteOrder}
-              isPriority={index === 0} // Primeiro da lista é prioridade
+              isPriority={index === 0}
               index={index}
             />
           ))}
