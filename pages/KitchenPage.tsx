@@ -113,7 +113,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
             📝 Observação:
           </p>
           <p className="text-sm text-stone-800 font-medium whitespace-pre-wrap italic leading-snug">
-            "{order.observation}" bom dia
+            "{order.observation}"
           </p>
         </div>
       )}
@@ -247,6 +247,7 @@ const KitchenPage: React.FC = () => {
             <OrderCard
               key={order.id}
               order={order}
+              observation={order.observation}
               onComplete={handleCompleteOrder}
               isPriority={index === 0} // Primeiro da lista é prioridade
               index={index}
