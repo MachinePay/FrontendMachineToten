@@ -128,6 +128,7 @@ const KitchenPage: React.FC = () => {
       const resp = await fetch(`${BACKEND_URL}/api/ai/kitchen-priority`);
       const data: AIKitchenResponse = await resp.json();
       
+      // Adicionando logs para depuração
       console.log(`✅ Recebido ${data.orders.length} pedido(s)`);
       console.log(`🤖 IA: ${data.aiEnabled ? 'Ativa' : 'Desativada'}`);
       console.log(`💡 Reasoning: ${data.reasoning || data.message || 'Nenhum'}`);
