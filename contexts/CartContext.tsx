@@ -23,6 +23,8 @@ interface CartContextType {
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   cartTotal: number;
+  observation: string;
+  setObservation: (obs: string) => void;
 }
 
 // Cria o contexto com tipo opcional (undefined por padrão até o Provider ser usado)
@@ -47,6 +49,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     }
   });
 
+  const [observation, setObservation] = useState<string>(() => {
+    try {
+      return localStorage.getItem("kiosk_observation") || "";
+    } catch (error) {
+      console.error("Erro ao recuperar observação:", error);
+      return "";
+    }
+  });
+
   // 2. Efeito de Persistência: Salva no LocalStorage sempre que o carrinho mudar
   useEffect(() => {
     try {
@@ -55,6 +66,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       console.error("Erro ao salvar carrinho:", error);
     }
   }, [cartItems]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("kiosk_observation", observation);
+    } catch (error) {
+      console.error("Erro ao salvar observação:", error);
+    }
+  }, [observation]);
 
   /*
     Adiciona um produto ao carrinho.
@@ -124,6 +143,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   // O useEffect atualizará o localStorage automaticamente
   const clearCart = () => {
     setCartItems([]);
+    setObservation("");
   };
 
   // Calcula o total do carrinho somando price * quantity de cada item
@@ -142,8 +162,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
         updateQuantity,
         clearCart,
         cartTotal,
-      observation,
-      setObservation,
+        observation,
+        setObservation,
       }}
     >
       {children}
