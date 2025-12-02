@@ -2,11 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
-const ADMIN_PASSWORD = "2468";
-
 const AdminLoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { login, currentUser } = useAuth();
   const navigate = useNavigate();
 
@@ -17,21 +16,41 @@ const AdminLoginPage: React.FC = () => {
     }
   }, [currentUser, navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (password === ADMIN_PASSWORD) {
-      const adminUser = {
-        id: "admin_user",
-        name: "Administrador",
-        historico: [],
-        role: "admin" as const,
-      };
-      login(adminUser);
-      navigate("/admin");
-    } else {
-      setError("Senha incorreta");
-      setPassword("");
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:3001"
+        }/api/auth/admin-login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        }
+      );
+
+      if (response.ok) {
+        const adminUser = {
+          id: "admin_user",
+          name: "Administrador",
+          historico: [],
+          role: "admin" as const,
+        };
+        login(adminUser);
+        navigate("/admin");
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || "Senha incorreta");
+        setPassword("");
+      }
+    } catch (err) {
+      setError("Erro de conexão. Tente novamente.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -64,15 +83,17 @@ const AdminLoginPage: React.FC = () => {
               placeholder="Digite a senha"
               className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
               autoFocus
+              disabled={isLoading}
             />
             {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
           </div>
 
           <button
             type="submit"
-            className="w-full bg-purple-700 text-white font-bold py-3 rounded-lg hover:bg-purple-800 transition-colors text-lg"
+            disabled={isLoading}
+            className="w-full bg-purple-700 text-white font-bold py-3 rounded-lg hover:bg-purple-800 transition-colors text-lg disabled:bg-purple-400 disabled:cursor-wait"
           >
-            Entrar
+            {isLoading ? "Verificando..." : "Entrar"}
           </button>
         </form>
 
