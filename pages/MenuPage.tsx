@@ -26,6 +26,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   quantityInCart = 0,
 }) => {
+  // Lógica ajustada: Se for null é ilimitado. Se for 0 é esgotado.
   const isOutOfStock = product.stock === 0;
 
   return (
@@ -34,14 +35,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
         isOutOfStock ? "opacity-60 grayscale" : ""
       }`}
     >
-      {/* Badges */}
+      {/* Badges - Apenas ESGOTADO agora */}
       {isOutOfStock && (
         <div className="absolute top-3 right-3 z-10 bg-red-600 text-white font-bold px-3 py-1 rounded text-sm shadow-sm">
           ESGOTADO
         </div>
       )}
 
-      {/* Mídia */}
+      {/* Mídia (Vídeo/Imagem) */}
       <div className="relative h-40 md:h-52 bg-gray-100">
         <video
           className="w-full h-full object-cover"
@@ -91,7 +92,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 // ==========================================
-// 2. COMPONENTE: CART SIDEBAR (Letras e Botões Grandes)
+// 2. COMPONENTE: CART SIDEBAR (Letras e Botões Grandes + Observação)
 // ==========================================
 interface CartSidebarProps {
   cartItems: CartItem[];
@@ -104,8 +105,8 @@ interface CartSidebarProps {
   onClose?: () => void;
   menu: Product[];
   onAddToCart: (product: Product) => void;
-  observation: string;
-  setObservation: (obs: string) => void;
+  observation: string; // <--- Recebe a observação
+  setObservation: (obs: string) => void; // <--- Recebe a função para alterar
 }
 
 const CartSidebar: React.FC<CartSidebarProps> = ({
@@ -260,24 +261,25 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
       {/* Footer / Checkout */}
       {cartItems.length > 0 && (
-        <div className="p-5 bg-white border-t border-stone-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-          {/* Campo de Observação */}
+        <div className="p-6 bg-white border-t border-stone-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+          {/* CAMPO DE OBSERVAÇÃO - AGORA CONECTADO AO CONTEXTO */}
           <div className="mb-4">
             <label
               htmlFor="observation"
-              className="block text-sm font-bold text-stone-700 mb-2"
+              className="block text-lg font-bold text-stone-700 mb-2"
             >
-              📝 Observações do Pedido
+              📝 Alguma observação?
             </label>
             <textarea
               id="observation"
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              placeholder="Ex: Sem cebola, ponto da carne, etc."
-              className="w-full p-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors"
+              placeholder="Ex: Sem cebola, ponto da carne, retirar molho..."
+              className="w-full p-3 border-2 border-stone-300 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all text-lg"
               rows={2}
             />
           </div>
+
           <div className="flex justify-between items-center mb-4">
             <span className="text-stone-500 font-bold text-xl">Total</span>
             <span className="text-3xl md:text-4xl font-bold text-stone-800">
@@ -409,6 +411,8 @@ const MenuPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { currentUser } = useAuth();
+  
+  // AQUI ESTÁ A MÁGICA: Extraímos observation e setObservation do contexto
   const {
     cartItems,
     addToCart,
@@ -418,6 +422,7 @@ const MenuPage: React.FC = () => {
     observation,
     setObservation,
   } = useCart();
+  
   const navigate = useNavigate();
 
   const fetchMenuData = async () => {
