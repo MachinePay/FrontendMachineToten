@@ -227,40 +227,7 @@ const KitchenPage: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-3 md:py-2 lg:py-6 min-h-screen bg-stone-100">
       <div className="mb-4 md:mb-2 lg:mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-3 md:mb-2 lg:mb-4 gap-3 md:gap-2 lg:gap-4">
-          <h1 className="text-4xl md:text-2xl lg:text-4xl font-bold text-amber-800 flex items-center gap-3 md:gap-2 lg:gap-3">
-            <span>🍳</span> Cozinha Inteligente
-          </h1>
-
-          <div className="flex gap-3 md:gap-2 lg:gap-3">
-            {/* Botão de Volume */}
-            <button
-              onClick={() => setAudioEnabled(!audioEnabled)}
-              className={`flex items-center gap-2 md:gap-1 lg:gap-2 px-4 md:px-3 lg:px-4 py-2 md:py-1.5 lg:py-2 rounded-full font-bold text-sm md:text-xs lg:text-sm shadow-sm transition-all ${
-                audioEnabled
-                  ? "bg-amber-100 text-amber-800 border-2 border-amber-500"
-                  : "bg-stone-300 text-stone-600 hover:bg-stone-400"
-              }`}
-            >
-              {audioEnabled ? <>🔊 Som Ativado</> : <>🔇 Som Desativado</>}
-            </button>
-
-            {/* Botão de Logout */}
-            <button
-              onClick={async () => {
-                if (window.confirm("Deseja realmente sair?")) {
-                  await logout();
-                  navigate("/cozinha/login");
-                }
-              }}
-              className="bg-red-500 text-white font-bold py-2 md:py-1.5 lg:py-2 px-6 md:px-4 lg:px-6 rounded-lg hover:bg-red-600 transition-colors shadow-md text-sm md:text-xs lg:text-sm"
-            >
-              🚪 Sair
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 md:gap-2 lg:gap-3 mb-4 md:mb-2 lg:mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 md:gap-2 lg:gap-3 mb-4 md:mb-2 lg:mb-4">
           {aiEnabled ? (
             <span className="bg-green-600 text-white px-4 md:px-3 lg:px-4 py-1.5 md:py-1 lg:py-1.5 rounded-full text-sm md:text-xs lg:text-sm font-bold shadow-sm flex items-center gap-2 md:gap-1 lg:gap-2">
               <span>🤖</span> IA Ativa
@@ -274,6 +241,31 @@ const KitchenPage: React.FC = () => {
           <span className="bg-amber-600 text-white px-4 md:px-3 lg:px-4 py-1.5 md:py-1 lg:py-1.5 rounded-full text-sm md:text-xs lg:text-sm font-bold shadow-sm">
             {activeOrders.length} pedido{activeOrders.length !== 1 ? "s" : ""}
           </span>
+
+          {/* Botão de Volume */}
+          <button
+            onClick={() => setAudioEnabled(!audioEnabled)}
+            className={`flex items-center gap-2 md:gap-1 lg:gap-2 px-4 md:px-3 lg:px-4 py-2 md:py-1.5 lg:py-2 rounded-full font-bold text-sm md:text-xs lg:text-sm shadow-sm transition-all ${
+              audioEnabled
+                ? "bg-amber-100 text-amber-800 border-2 border-amber-500"
+                : "bg-stone-300 text-stone-600 hover:bg-stone-400"
+            }`}
+          >
+            {audioEnabled ? <>🔊 Som Ativado</> : <>🔇 Som Desativado</>}
+          </button>
+
+          {/* Botão de Logout */}
+          <button
+            onClick={async () => {
+              if (window.confirm("Deseja realmente sair?")) {
+                await logout();
+                navigate("/cozinha/login");
+              }
+            }}
+            className="bg-red-500 text-white font-bold py-2 md:py-1.5 lg:py-2 px-6 md:px-4 lg:px-6 rounded-lg hover:bg-red-600 transition-colors shadow-md text-sm md:text-xs lg:text-sm"
+          >
+            🚪 Sair
+          </button>
         </div>
 
         {reasoning && (
