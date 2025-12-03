@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Order } from "../types";
+import { authenticatedFetch } from "../services/apiService";
+import { useAuth } from "../contexts/AuthContext";
 
 // Interface para resposta da IA
 interface AIKitchenResponse {
@@ -143,6 +146,9 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
 // --- Componente principal ---
 const KitchenPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -204,9 +210,12 @@ const KitchenPage: React.FC = () => {
   const handleCompleteOrder = async (orderId: string) => {
     try {
       setActiveOrders((prev) => prev.filter((o) => o.id !== orderId));
-      const resp = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
-        method: "DELETE",
-      });
+      const resp = await authenticatedFetch(
+        `${BACKEND_URL}/api/orders/${orderId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!resp.ok) await fetchOrders();
     } catch (err) {
       await fetchOrders();
@@ -221,17 +230,32 @@ const KitchenPage: React.FC = () => {
             <span>🍳</span> Cozinha Inteligente
           </h1>
 
-          {/* Botão de Volume */}
-          <button
-            onClick={() => setAudioEnabled(!audioEnabled)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${
-              audioEnabled
-                ? "bg-amber-100 text-amber-800 border-2 border-amber-500"
-                : "bg-stone-300 text-stone-600 hover:bg-stone-400"
-            }`}
-          >
-            {audioEnabled ? <>🔊 Som Ativado</> : <>🔇 Som Desativado</>}
-          </button>
+          <div className="flex gap-3">
+            {/* Botão de Volume */}
+            <button
+              onClick={() => setAudioEnabled(!audioEnabled)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${
+                audioEnabled
+                  ? "bg-amber-100 text-amber-800 border-2 border-amber-500"
+                  : "bg-stone-300 text-stone-600 hover:bg-stone-400"
+              }`}
+            >
+              {audioEnabled ? <>🔊 Som Ativado</> : <>🔇 Som Desativado</>}
+            </button>
+
+            {/* Botão de Logout */}
+            <button
+              onClick={async () => {
+                if (window.confirm("Deseja realmente sair?")) {
+                  await logout();
+                  navigate("/cozinha/login");
+                }
+              }}
+              className="bg-red-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors shadow-md"
+            >
+              🚪 Sair
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-4">

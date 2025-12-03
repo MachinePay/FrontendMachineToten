@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { login as apiLogin, isAuthenticated } from "../services/apiService";
 
 const AdminLoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
@@ -11,7 +12,7 @@ const AdminLoginPage: React.FC = () => {
 
   useEffect(() => {
     // Se já está logado como admin, redirecionar
-    if (currentUser?.role === "admin") {
+    if (currentUser?.role === "admin" || isAuthenticated()) {
       navigate("/admin");
     }
   }, [currentUser, navigate]);
@@ -22,18 +23,11 @@ const AdminLoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:3001"
-        }/api/auth/admin-login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password }),
-        }
-      );
+      // Usa o novo serviço de autenticação JWT
+      const success = await apiLogin("admin", password);
 
-      if (response.ok) {
+      if (success) {
+        // Atualiza o contexto local com o usuário admin
         const adminUser = {
           id: "admin_user",
           name: "Administrador",
@@ -43,8 +37,7 @@ const AdminLoginPage: React.FC = () => {
         login(adminUser);
         navigate("/admin");
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || "Senha incorreta");
+        setError("Senha incorreta");
         setPassword("");
       }
     } catch (err) {

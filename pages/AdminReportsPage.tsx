@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { Order } from "../types";
+import { authenticatedFetch } from "../services/apiService";
 
 interface AIRecommendation {
   topProducts: { name: string; quantity: number; revenue: number }[];
@@ -11,7 +12,9 @@ interface AIRecommendation {
 
 const AdminReportsPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
+  const [recommendation, setRecommendation] = useState<AIRecommendation | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,7 +25,11 @@ const AdminReportsPage: React.FC = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/user-orders`);
+      const res = await fetch(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:3001"
+        }/api/user-orders`
+      );
       if (!res.ok) throw new Error("Erro ao buscar pedidos");
       const data = await res.json();
       setOrders(data);
@@ -35,11 +42,11 @@ const AdminReportsPage: React.FC = () => {
   const generateAIReport = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       // Processar dados localmente primeiro
       const analysis = analyzeOrders(orders);
-      
+
       // Gerar insights com IA
       const prompt = `Você é um consultor de negócios para uma pastelaria. Analise os seguintes dados e forneça recomendações estratégicas:
 
@@ -48,13 +55,22 @@ const AdminReportsPage: React.FC = () => {
 - Total de Pedidos: ${orders.length}
 
 🏆 PRODUTOS MAIS VENDIDOS:
-${analysis.topProducts.map((p, i) => `${i + 1}. ${p.name}: ${p.quantity} unidades (R$ ${p.revenue.toFixed(2)})`).join('\n')}
+${analysis.topProducts
+  .map(
+    (p, i) =>
+      `${i + 1}. ${p.name}: ${p.quantity} unidades (R$ ${p.revenue.toFixed(2)})`
+  )
+  .join("\n")}
 
 📅 DIAS COM MAIS PEDIDOS:
-${analysis.peakDays.map((d, i) => `${i + 1}. ${d.day}: ${d.orders} pedidos`).join('\n')}
+${analysis.peakDays
+  .map((d, i) => `${i + 1}. ${d.day}: ${d.orders} pedidos`)
+  .join("\n")}
 
 ⏰ HORÁRIOS DE PICO:
-${analysis.peakHours.map((h, i) => `${i + 1}. ${h.hour}: ${h.orders} pedidos`).join('\n')}
+${analysis.peakHours
+  .map((h, i) => `${i + 1}. ${h.hour}: ${h.orders} pedidos`)
+  .join("\n")}
 
 Forneça 3-5 recomendações práticas e objetivas para:
 1. Otimizar estoque dos produtos mais vendidos
@@ -64,16 +80,20 @@ Forneça 3-5 recomendações práticas e objetivas para:
 
 Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/suggestion`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
+      const res = await authenticatedFetch(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:3001"
+        }/api/ai/suggestion`,
+        {
+          method: "POST",
+          body: JSON.stringify({ prompt }),
+        }
+      );
 
       if (!res.ok) throw new Error("Erro na API de IA");
-      
+
       const data = await res.json();
-      
+
       setRecommendation({
         ...analysis,
         insights: data.text,
@@ -87,32 +107,43 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
   };
 
   // Análise de dados dos pedidos
-  const analyzeOrders = (orders: Order[]): Omit<AIRecommendation, "insights"> => {
+  const analyzeOrders = (
+    orders: Order[]
+  ): Omit<AIRecommendation, "insights"> => {
     // Filtrar pedidos do mês atual
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
-    const monthOrders = orders.filter(order => {
+
+    const monthOrders = orders.filter((order) => {
       const orderDate = new Date(order.timestamp);
-      return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
+      return (
+        orderDate.getMonth() === currentMonth &&
+        orderDate.getFullYear() === currentYear
+      );
     });
 
     // Calcular faturamento mensal
-    const monthlyRevenue = monthOrders.reduce((sum, order) => sum + order.total, 0);
+    const monthlyRevenue = monthOrders.reduce(
+      (sum, order) => sum + order.total,
+      0
+    );
 
     // Produtos mais vendidos
     const productMap = new Map<string, { quantity: number; revenue: number }>();
-    monthOrders.forEach(order => {
-      order.items.forEach(item => {
-        const existing = productMap.get(item.name) || { quantity: 0, revenue: 0 };
+    monthOrders.forEach((order) => {
+      order.items.forEach((item) => {
+        const existing = productMap.get(item.name) || {
+          quantity: 0,
+          revenue: 0,
+        };
         productMap.set(item.name, {
           quantity: existing.quantity + item.quantity,
-          revenue: existing.revenue + (item.price * item.quantity),
+          revenue: existing.revenue + item.price * item.quantity,
         });
       });
     });
-    
+
     const topProducts = Array.from(productMap.entries())
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.quantity - a.quantity)
@@ -120,12 +151,20 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
 
     // Dias da semana com mais pedidos
     const dayMap = new Map<string, number>();
-    const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-    monthOrders.forEach(order => {
+    const dayNames = [
+      "Domingo",
+      "Segunda",
+      "Terça",
+      "Quarta",
+      "Quinta",
+      "Sexta",
+      "Sábado",
+    ];
+    monthOrders.forEach((order) => {
       const day = dayNames[new Date(order.timestamp).getDay()];
       dayMap.set(day, (dayMap.get(day) || 0) + 1);
     });
-    
+
     const peakDays = Array.from(dayMap.entries())
       .map(([day, orders]) => ({ day, orders }))
       .sort((a, b) => b.orders - a.orders)
@@ -133,12 +172,12 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
 
     // Horários de pico
     const hourMap = new Map<string, number>();
-    monthOrders.forEach(order => {
+    monthOrders.forEach((order) => {
       const hour = new Date(order.timestamp).getHours();
       const hourRange = `${hour}:00 - ${hour + 1}:00`;
       hourMap.set(hourRange, (hourMap.get(hourRange) || 0) + 1);
     });
-    
+
     const peakHours = Array.from(hourMap.entries())
       .map(([hour, orders]) => ({ hour, orders }))
       .sort((a, b) => b.orders - a.orders)
@@ -172,9 +211,7 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
             Nenhum pedido encontrado para análise
           </p>
         )}
-        {error && (
-          <p className="text-sm text-red-600 mt-2">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
       </div>
 
       {/* Relatório */}
@@ -195,7 +232,9 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
               <h3 className="text-sm font-semibold text-blue-800 mb-2">
                 📦 Total de Pedidos
               </h3>
-              <p className="text-3xl font-bold text-blue-900">{orders.length}</p>
+              <p className="text-3xl font-bold text-blue-900">
+                {orders.length}
+              </p>
             </div>
 
             <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-xl shadow-lg border-l-4 border-amber-500">

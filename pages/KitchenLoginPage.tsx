@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { login as apiLogin, isAuthenticated } from "../services/apiService";
 
 const KitchenLoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
@@ -11,7 +12,7 @@ const KitchenLoginPage: React.FC = () => {
 
   useEffect(() => {
     // Se já está logado como cozinha, redirecionar
-    if (currentUser?.role === "kitchen") {
+    if (currentUser?.role === "kitchen" || isAuthenticated()) {
       navigate("/cozinha");
     }
   }, [currentUser, navigate]);
@@ -22,18 +23,11 @@ const KitchenLoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:3001"
-        }/api/auth/kitchen-login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password }),
-        }
-      );
+      // Usa o novo serviço de autenticação JWT
+      const success = await apiLogin("kitchen", password);
 
-      if (response.ok) {
+      if (success) {
+        // Atualiza o contexto local com o usuário da cozinha
         const kitchenUser = {
           id: "kitchen_user",
           name: "Cozinha",
@@ -43,8 +37,7 @@ const KitchenLoginPage: React.FC = () => {
         login(kitchenUser);
         navigate("/cozinha");
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || "Senha incorreta");
+        setError("Senha incorreta");
         setPassword("");
       }
     } catch (err) {

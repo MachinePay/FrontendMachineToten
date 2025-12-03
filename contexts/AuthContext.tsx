@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode } from "react";
 import type { User, Order } from "../types";
+import { logout as apiLogout } from "../services/apiService";
 
 // Define o formato do contexto de autenticação: quais valores e funções estarão disponíveis
 interface AuthContextType {
@@ -41,23 +42,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const logout = async () => {
     try {
       // Limpar qualquer pagamento pendente na fila
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      
-      console.log('🧼 Limpando pagamentos pendentes antes de logout...');
-      
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+      console.log("🧼 Limpando pagamentos pendentes antes de logout...");
+
       const response = await fetch(`${API_URL}/api/payment/clear-queue`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log(`✅ ${data.cleared || 0} pagamento(s) limpo(s)`);
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao limpar pagamentos (continua logout):', error);
+      console.warn("⚠️ Erro ao limpar pagamentos (continua logout):", error);
     }
-    
+
+    // Limpar token JWT
+    apiLogout();
+
     // Limpar usuário
     setCurrentUser(null);
     try {
