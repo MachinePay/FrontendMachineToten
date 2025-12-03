@@ -249,3 +249,5 @@ FRONTEND_URL=https://seu-dominio.com
 Seu sistema agora está totalmente seguro com autenticação JWT! 🔒
 
 Backend e frontend conversando de forma segura com tokens JWT válidos por 8 horas.
+
+ATUALIZADO
