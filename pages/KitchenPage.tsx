@@ -66,38 +66,38 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
   return (
     <div
-      className={`${bgColor} p-6 rounded-xl shadow-lg border-t-4 ${borderColor} relative flex flex-col h-full animate-fade-in-down`}
+      className={`${bgColor} p-6 md:p-3 lg:p-6 rounded-xl shadow-lg border-t-4 ${borderColor} relative flex flex-col h-full animate-fade-in-down`}
     >
       {isPriority && (
-        <div className="absolute -top-3 -right-3 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse z-10">
+        <div className="absolute -top-3 -right-3 bg-yellow-500 text-white px-3 md:px-2 lg:px-3 py-1 md:py-0.5 lg:py-1 rounded-full text-xs md:text-[10px] lg:text-xs font-bold shadow-lg animate-pulse z-10">
           ⚡ FAZER AGORA
         </div>
       )}
 
       {isUrgent && !isPriority && (
-        <div className="absolute -top-3 -right-3 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold z-10">
+        <div className="absolute -top-3 -right-3 bg-red-500 text-white px-3 md:px-2 lg:px-3 py-1 md:py-0.5 lg:py-1 rounded-full text-xs md:text-[10px] lg:text-xs font-bold z-10">
           🔥 URGENTE
         </div>
       )}
 
-      <div className="flex justify-between items-start mb-4 border-b border-stone-100 pb-2">
+      <div className="flex justify-between items-start mb-4 md:mb-2 lg:mb-4 border-b border-stone-100 pb-2 md:pb-1 lg:pb-2">
         <div>
-          <div className="text-xs text-stone-500 font-semibold mb-1 uppercase tracking-wide">
+          <div className="text-xs md:text-[10px] lg:text-xs text-stone-500 font-semibold mb-1 md:mb-0.5 lg:mb-1 uppercase tracking-wide">
             #{index + 1} na fila
           </div>
 
-          <h3 className="font-bold text-xl text-stone-800 leading-tight">
+          <h3 className="font-bold text-xl md:text-base lg:text-xl text-stone-800 leading-tight">
             Pedido #{order.id.slice(-4)}
           </h3>
 
           {order.userName && (
-            <p className="text-sm text-stone-600 font-medium mt-1">
+            <p className="text-sm md:text-xs lg:text-sm text-stone-600 font-medium mt-1 md:mt-0.5 lg:mt-1">
               👤 {order.userName}
             </p>
           )}
 
           <p
-            className={`text-xs font-bold mt-1 ${
+            className={`text-xs md:text-[10px] lg:text-xs font-bold mt-1 md:mt-0.5 lg:mt-1 ${
               isUrgent ? "text-red-600" : "text-amber-600"
             }`}
           >
@@ -106,17 +106,19 @@ const OrderCard: React.FC<OrderCardProps> = ({
         </div>
       </div>
 
-      <ul className="space-y-2 mb-4 flex-grow">
+      <ul className="space-y-2 md:space-y-1 lg:space-y-2 mb-4 md:mb-2 lg:mb-4 flex-grow">
         {order.items.map((item, idx) => (
           <li
             key={idx}
-            className="flex justify-between items-center border-b border-stone-100 pb-2 last:border-0"
+            className="flex justify-between items-center border-b border-stone-100 pb-2 md:pb-1 lg:pb-2 last:border-0"
           >
-            <div className="flex items-center gap-2">
-              <span className="bg-stone-200 text-stone-700 font-bold px-2 py-0.5 rounded text-sm">
+            <div className="flex items-center gap-2 md:gap-1 lg:gap-2">
+              <span className="bg-stone-200 text-stone-700 font-bold px-2 md:px-1.5 lg:px-2 py-0.5 rounded text-sm md:text-xs lg:text-sm">
                 {item.quantity}x
               </span>
-              <span className="font-medium text-stone-800">{item.name}</span>
+              <span className="font-medium text-stone-800 text-sm md:text-xs lg:text-sm">
+                {item.name}
+              </span>
             </div>
           </li>
         ))}
@@ -124,11 +126,11 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
       {/* Observação */}
       {order.observation && (
-        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
-          <p className="text-xs font-bold text-yellow-800 uppercase mb-1 flex items-center gap-1">
+        <div className="mb-4 md:mb-2 lg:mb-4 p-3 md:p-2 lg:p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
+          <p className="text-xs md:text-[10px] lg:text-xs font-bold text-yellow-800 uppercase mb-1 md:mb-0.5 lg:mb-1 flex items-center gap-1">
             📝 Observação:
           </p>
-          <p className="text-sm text-stone-800 font-medium whitespace-pre-wrap italic leading-snug">
+          <p className="text-sm md:text-xs lg:text-sm text-stone-800 font-medium whitespace-pre-wrap italic leading-snug md:leading-tight lg:leading-snug">
             "{order.observation}"
           </p>
         </div>
@@ -136,7 +138,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
       <button
         onClick={() => onComplete(order.id)}
-        className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors shadow-md active:transform active:scale-95"
+        className="w-full bg-green-600 text-white font-bold py-3 md:py-2 lg:py-3 rounded-lg hover:bg-green-700 transition-colors shadow-md active:transform active:scale-95 text-sm md:text-xs lg:text-sm"
       >
         ✅ Concluir Pedido
       </button>
@@ -224,17 +226,17 @@ const KitchenPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 min-h-screen bg-stone-100">
-      <div className="mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-          <h1 className="text-4xl font-bold text-amber-800 flex items-center gap-3">
+      <div className="mb-8 md:mb-4 lg:mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-2 lg:mb-4 gap-4 md:gap-2 lg:gap-4">
+          <h1 className="text-4xl md:text-2xl lg:text-4xl font-bold text-amber-800 flex items-center gap-3 md:gap-2 lg:gap-3">
             <span>🍳</span> Cozinha Inteligente
           </h1>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 md:gap-2 lg:gap-3">
             {/* Botão de Volume */}
             <button
               onClick={() => setAudioEnabled(!audioEnabled)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${
+              className={`flex items-center gap-2 md:gap-1 lg:gap-2 px-4 md:px-3 lg:px-4 py-2 md:py-1.5 lg:py-2 rounded-full font-bold text-sm md:text-xs lg:text-sm shadow-sm transition-all ${
                 audioEnabled
                   ? "bg-amber-100 text-amber-800 border-2 border-amber-500"
                   : "bg-stone-300 text-stone-600 hover:bg-stone-400"
@@ -251,33 +253,33 @@ const KitchenPage: React.FC = () => {
                   navigate("/cozinha/login");
                 }
               }}
-              className="bg-red-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors shadow-md"
+              className="bg-red-500 text-white font-bold py-2 md:py-1.5 lg:py-2 px-6 md:px-4 lg:px-6 rounded-lg hover:bg-red-600 transition-colors shadow-md text-sm md:text-xs lg:text-sm"
             >
               🚪 Sair
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-3 md:gap-2 lg:gap-3 mb-4 md:mb-2 lg:mb-4">
           {aiEnabled ? (
-            <span className="bg-green-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-sm flex items-center gap-2">
+            <span className="bg-green-600 text-white px-4 md:px-3 lg:px-4 py-1.5 md:py-1 lg:py-1.5 rounded-full text-sm md:text-xs lg:text-sm font-bold shadow-sm flex items-center gap-2 md:gap-1 lg:gap-2">
               <span>🤖</span> IA Ativa
             </span>
           ) : (
-            <span className="bg-stone-400 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-sm">
+            <span className="bg-stone-400 text-white px-4 md:px-3 lg:px-4 py-1.5 md:py-1 lg:py-1.5 rounded-full text-sm md:text-xs lg:text-sm font-bold shadow-sm">
               📋 Ordem Padrão
             </span>
           )}
 
-          <span className="bg-amber-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-sm">
+          <span className="bg-amber-600 text-white px-4 md:px-3 lg:px-4 py-1.5 md:py-1 lg:py-1.5 rounded-full text-sm md:text-xs lg:text-sm font-bold shadow-sm">
             {activeOrders.length} pedido{activeOrders.length !== 1 ? "s" : ""}
           </span>
         </div>
 
         {reasoning && (
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg shadow-sm max-w-4xl">
-            <p className="text-sm font-medium text-blue-900 leading-relaxed">
-              <strong className="block mb-1 text-blue-700">
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 md:p-2 lg:p-4 rounded-r-lg shadow-sm max-w-4xl">
+            <p className="text-sm md:text-xs lg:text-sm font-medium text-blue-900 leading-relaxed md:leading-snug lg:leading-relaxed">
+              <strong className="block mb-1 md:mb-0.5 lg:mb-1 text-blue-700">
                 💡 Estratégia IA:
               </strong>
               {reasoning}
@@ -300,7 +302,7 @@ const KitchenPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-3 lg:gap-6">
           {activeOrders.map((order, index) => (
             <OrderCard
               key={order.id}
