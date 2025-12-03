@@ -225,9 +225,9 @@ const KitchenPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 min-h-screen bg-stone-100">
-      <div className="mb-8 md:mb-4 lg:mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-2 lg:mb-4 gap-4 md:gap-2 lg:gap-4">
+    <div className="container mx-auto px-4 py-3 md:py-2 lg:py-6 min-h-screen bg-stone-100">
+      <div className="mb-4 md:mb-2 lg:mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-3 md:mb-2 lg:mb-4 gap-3 md:gap-2 lg:gap-4">
           <h1 className="text-4xl md:text-2xl lg:text-4xl font-bold text-amber-800 flex items-center gap-3 md:gap-2 lg:gap-3">
             <span>🍳</span> Cozinha Inteligente
           </h1>
