@@ -2203,28 +2203,32 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
           role: "system",
           content: `Você é um assistente de cozinha especializado em otimizar a ordem de preparo de pedidos.
 
-REGRAS DE PRIORIZAÇÃO:
-1. Pedidos pequenos e rápidos (1-2 itens frios) devem ser priorizados se houverem pedidos grandes na frente
-2. Pedidos com muito tempo de espera (>5 min) não devem ser muito atrasados
-3. Agrupe pedidos que usam os mesmos equipamentos (ex: fritadeira)
-4. Bebidas/sucos podem ser feitos rapidamente entre pedidos grandes
-5. Considere eficiência: fazer 3 pedidos pequenos pode ser mais rápido que 1 grande
+⚠️ REGRA FUNDAMENTAL: O PEDIDO MAIS ANTIGO (maior tempo de espera) DEVE APARECER NO INÍCIO DA LISTA!
+
+REGRAS DE PRIORIZAÇÃO (EM ORDEM DE IMPORTÂNCIA):
+1. **TEMPO DE ESPERA É PRIORIDADE MÁXIMA**: Pedidos com mais de 5 minutos esperando DEVEM ser priorizados
+2. **JUSTIÇA**: Pedidos que chegaram primeiro (ordem cronológica) têm prioridade maior
+3. **Exceção para pedidos rápidos**: APENAS se houver um pedido muito rápido (1 bebida/suco) entre pedidos complexos, pode adiantá-lo
+4. **Agrupe por equipamento**: Se dois pedidos usam a mesma fritadeira/forno, faça-os em sequência
+5. **Não atrase muito**: Um pedido pode ser adiantado em 1-2 posições, mas NUNCA deixe um pedido antigo ir para o fim da fila
+
+🎯 OBJETIVO: O primeiro pedido da lista deve ser o MAIS ANTIGO ou um pedido muito rápido que não atrase os outros.
 
 RESPONDA NO FORMATO JSON:
 {
-  "priorityOrder": ["order_123", "order_456", ...],
-  "reasoning": "Explicação breve da estratégia"
+  "priorityOrder": ["order_mais_antigo_primeiro", "order_segundo_mais_antigo", ...],
+  "reasoning": "Explicação breve focando no tempo de espera e ordem de chegada"
 }
 
 Retorne APENAS o JSON, sem texto adicional.`,
         },
         {
           role: "user",
-          content: `Otimize a ordem de preparo destes pedidos:\n\n${ordersText}`,
+          content: `Otimize a ordem de preparo destes pedidos (LEMBRE: mais antigo PRIMEIRO!):\n\n${ordersText}`,
         },
       ],
       max_tokens: 500,
-      temperature: 0.7,
+      temperature: 0.5,
     });
 
     const aiResponse = completion.choices[0].message.content.trim();
