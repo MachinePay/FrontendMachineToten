@@ -29,16 +29,15 @@ const InactivityGuard: React.FC = () => {
   const isKitchen = location.pathname.startsWith("/cozinha");
   const isAdmin = location.pathname.startsWith("/admin");
   const isPayment = location.pathname === "/payment";
+  const isLogin = location.pathname === "/login";
 
-  // O guard só deve funcionar se:
-  // 1. Tiver usuário logado
-  // 2. NÃO for a tela inicial
-  // 3. NÃO for a cozinha
-  // 4. NÃO for o admin
-  // 5. NÃO for a tela de pagamento
+  // O guard deve funcionar em:
+  // 1. Todas as páginas EXCETO: screensaver, cozinha e admin
+  // 2. Página de login TAMBÉM tem guard (para voltar ao vídeo após inatividade)
+  // 3. Página de pagamento NÃO tem guard (não pode interromper pagamento)
   const guardEnabled = useMemo(
-    () => !!currentUser && !isScreensaver && !isKitchen && !isAdmin && !isPayment,
-    [currentUser, isScreensaver, isKitchen, isAdmin, isPayment]
+    () => !isScreensaver && !isKitchen && !isAdmin && !isPayment,
+    [isScreensaver, isKitchen, isAdmin, isPayment]
   );
 
   const clearInactivityTimer = () => {
@@ -65,15 +64,20 @@ const InactivityGuard: React.FC = () => {
       clearCountdownTimer();
       countdownTimerRef.current = window.setInterval(() => {
         setCountdown((prev) => {
-          if (prev <= 3000) {
+          if (prev <= 1) {
             // time's up -> logout and go to screensaver
             clearCountdownTimer();
             setShowPrompt(false);
             // Logout and cleanup (async)
             (async () => {
-              await logout();
+              // Se tiver usuário logado, faz logout
+              if (currentUser) {
+                await logout();
+              }
               try {
                 clearCart();
+                // Limpa nome de convidado também
+                localStorage.removeItem("guestUserName");
               } catch {
                 /* ignore */
               }
@@ -85,7 +89,7 @@ const InactivityGuard: React.FC = () => {
         });
       }, 1000);
     }, INACTIVITY_MS);
-  }, [logout, clearCart, navigate]);
+  }, [logout, clearCart, navigate, currentUser]);
 
   const resetActivity = useCallback(() => {
     if (!guardEnabled) return;
