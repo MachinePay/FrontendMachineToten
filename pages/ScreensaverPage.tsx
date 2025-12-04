@@ -60,21 +60,16 @@ export default function ScreensaverPage() {
           {/* Mensagem com degradê e animação sobre o vídeo */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
-              <h1 
-                className="text-7xl font-black tracking-tight animate-pulse-slow"
+                <h1 
+                className="text-7xl font-bold tracking-tight animate-pulse-slow"
                 style={{
-                  background: 'linear-gradient(45deg, #f59e0b, #ef4444, #ec4899, #8b5cf6, #3b82f6, #10b981, #f59e0b)',
-                  backgroundSize: '400% 400%',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  animation: 'gradient 3s ease infinite, float 3s ease-in-out infinite',
-                  textShadow: '0 0 30px rgba(245, 158, 11, 0.5), 0 0 60px rgba(245, 158, 11, 0.3)',
-                  filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3))',
+                  color: '#ffffff',
+                  textShadow: '0 0 40px rgba(245, 158, 11, 0.9), 0 0 80px rgba(245, 158, 11, 0.6), 0 4px 12px rgba(0, 0, 0, 0.5)',
+                  filter: 'drop-shadow(0 8px 16px rgba(245, 158, 11, 0.4))',
                 }}
-              >
+                >
                 Clique para começar seu pedido!
-              </h1>
+                </h1>
               
               {/* Indicador visual adicional */}
               <div 
