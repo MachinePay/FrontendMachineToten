@@ -44,17 +44,68 @@ export default function ScreensaverPage() {
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
       {!videoError && videos.length > 0 ? (
-        <video
-          key={videos[current]}
-          src={videos[current]}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-          onError={handleVideoError}
-          onLoadedData={handleVideoLoad}
-        />
+        <>
+          <video
+            key={videos[current]}
+            src={videos[current]}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+            onError={handleVideoError}
+            onLoadedData={handleVideoLoad}
+          />
+          
+          {/* Mensagem com degradê e animação sobre o vídeo */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center">
+              <h1 
+                className="text-7xl font-black tracking-tight animate-pulse-slow"
+                style={{
+                  background: 'linear-gradient(45deg, #f59e0b, #ef4444, #ec4899, #8b5cf6, #3b82f6, #10b981, #f59e0b)',
+                  backgroundSize: '400% 400%',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  animation: 'gradient 3s ease infinite, float 3s ease-in-out infinite',
+                  textShadow: '0 0 30px rgba(245, 158, 11, 0.5), 0 0 60px rgba(245, 158, 11, 0.3)',
+                  filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3))',
+                }}
+              >
+                Clique para começar seu pedido!
+              </h1>
+              
+              {/* Indicador visual adicional */}
+              <div 
+                className="mt-8 text-6xl animate-bounce"
+                style={{
+                  filter: 'drop-shadow(0 4px 12px rgba(245, 158, 11, 0.8))',
+                }}
+              >
+                👆
+              </div>
+            </div>
+          </div>
+          
+          {/* CSS customizado para animações */}
+          <style>{`
+            @keyframes gradient {
+              0% { background-position: 0% 50%; }
+              50% { background-position: 100% 50%; }
+              100% { background-position: 0% 50%; }
+            }
+            
+            @keyframes float {
+              0%, 100% { transform: translateY(0px); }
+              50% { transform: translateY(-20px); }
+            }
+            
+            .animate-pulse-slow {
+              animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+          `}</style>
+        </>
       ) : (
         <div className="text-center p-8">
           <div className="text-6xl mb-8">🍰</div>
