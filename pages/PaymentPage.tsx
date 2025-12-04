@@ -58,8 +58,13 @@ const PaymentPage: React.FC = () => {
     // Polling a cada 3 segundos
     refetchInterval: (query) => {
       const data = query.state.data;
-      // Para o polling se aprovado ou cancelado
-      if (data?.status === "approved" || data?.status === "FINISHED")
+      // Para o polling se aprovado, cancelado ou rejeitado (status final)
+      if (
+        data?.status === "approved" ||
+        data?.status === "FINISHED" ||
+        data?.status === "canceled" ||
+        data?.status === "rejected"
+      )
         return false;
       return 3000;
     },
@@ -79,6 +84,16 @@ const PaymentPage: React.FC = () => {
         activePayment.id,
         activePayment.type
       );
+    }
+
+    // Detecta pagamento cancelado ou rejeitado
+    if (
+      (paymentStatusData?.status === "canceled" ||
+        paymentStatusData?.status === "rejected") &&
+      activePayment
+    ) {
+      console.log("❌ Pagamento cancelado/rejeitado:", paymentStatusData);
+      handlePaymentFailure(paymentStatusData);
     }
   }, [paymentStatusData, activePayment]);
 
@@ -102,6 +117,34 @@ const PaymentPage: React.FC = () => {
       }
     };
   }, []);
+
+  // --- Lógica de Falha de Pagamento ---
+  const handlePaymentFailure = (data: any) => {
+    setActivePayment(null); // Para o polling
+    setStatus("error");
+
+    // Mensagens específicas baseadas no reason
+    const reasonMessages: Record<string, string> = {
+      canceled_by_user: "Pagamento cancelado na maquininha pelo usuário",
+      payment_error: "Erro ao processar pagamento na maquininha",
+      canceled_by_system: "Pagamento cancelado pelo sistema",
+      rejected_by_terminal: "Pagamento rejeitado pela maquininha",
+    };
+
+    // Prioridade: message do backend > reasonMessages > mensagem genérica
+    const errorMsg =
+      data.message ||
+      (data.reason ? reasonMessages[data.reason] : null) ||
+      "Pagamento não aprovado. Tente novamente.";
+
+    setErrorMessage(errorMsg);
+    setQrCodeBase64(null);
+
+    console.log(`❌ Falha: ${errorMsg}`);
+    if (data.reason) console.log(`  Motivo: ${data.reason}`);
+    if (data.orderId) console.log(`  Pedido: ${data.orderId}`);
+    if (data.paymentStatus) console.log(`  Status MP: ${data.paymentStatus}`);
+  };
 
   // --- Lógica de Finalização ---
   const finalizeOrder = async (
