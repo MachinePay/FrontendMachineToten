@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from 'sweetalert2';
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
 import type { User } from "../types";
@@ -36,7 +37,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-amber-800 mb-2">
             MachineToten
@@ -99,23 +100,6 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
-
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/users`);
-        if (!res.ok) throw new Error("bad");
-        const list = await res.json();
-        setUsers(list as User[]);
-      } catch (err) {
-        console.error('Erro ao carregar usuários:', err);
-        setUsers([]);
-      }
-    };
-
-    loadUsers();
-  }, []);
 
   const formatCPF = (value: string) => {
     const cleaned = value.replace(/\D/g, "");
@@ -145,20 +129,48 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
     setError("");
 
     try {
-      // Simular busca
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Nova rota do backend para login com CPF
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/users/login-cpf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf: cleanCPF, name: "Cliente" })
+      });
 
-      // Procurar usuário com esse CPF
-      const foundUser = users.find((u) => u.cpf === cleanCPF);
+      if (!response.ok) {
+        throw new Error('Erro ao fazer login');
+      }
 
-      if (foundUser) {
-        onLoginSuccess(foundUser);
+      const user = await response.json();
+
+      // Mostra mensagem apropriada com SweetAlert
+      if (user.isNewUser) {
+        // Usuário foi criado agora
+        await Swal.fire({
+          title: '🎉 Bem-vindo!',
+          html: `Olá, <strong>${user.name}</strong>!<br><br>Sua conta foi criada com sucesso.<br>Aproveite nossos deliciosos pastéis!`,
+          icon: 'success',
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Começar Pedido',
+          timer: 3000,
+          timerProgressBar: true
+        });
+        onLoginSuccess(user);
       } else {
-        setUserNotFound(true);
-        setShowRegister(true);
+        // Usuário já existia
+        await Swal.fire({
+          title: '👋 Bem-vindo de volta!',
+          html: `Olá, <strong>${user.name}</strong>!<br><br>Você tem <strong>${user.pontos || 0} pontos</strong> acumulados! 🌟`,
+          icon: 'success',
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Ver Cardápio',
+          timer: 3000,
+          timerProgressBar: true
+        });
+        onLoginSuccess(user);
       }
     } catch (err) {
       setError("Erro ao buscar CPF. Tente novamente.");
+      console.error('Erro no login:', err);
     } finally {
       setIsLoading(false);
     }
