@@ -2,66 +2,82 @@
  * 🏪 TENANT RESOLVER - Identificação da Loja (Multi-tenant)
  *
  * Identifica qual loja está sendo acessada baseada no subdomínio da URL.
- * Exemplo: pastelaria-joao.meukiosk.com -> storeId: "pastelaria-joao"
+ * Exemplo: pastelaria-joao.kioskpro.com.br -> storeId: "pastelaria-joao"
+ *
+ * PRIORIDADE:
+ * 1. Variável de ambiente (VITE_DEFAULT_STORE_ID) - MÁXIMA PRIORIDADE
+ * 2. Subdomínio (exceto 'www')
+ * 3. Fallback padrão (pastelaria_01)
  */
+
+const DEFAULT_STORE_ID = "pastelaria_01"; // Loja principal padrão
 
 /**
  * Extrai o storeId do subdomínio da URL atual
  * @returns storeId ou null se estiver em localhost/ambiente de desenvolvimento
  */
 export function getStoreIdFromDomain(): string | null {
+  // ✅ PRIORIDADE 1: Variável de ambiente (sempre tem precedência)
+  const envStoreId = import.meta.env.VITE_DEFAULT_STORE_ID;
+  if (envStoreId) {
+    console.log(`🏪 Store ID da variável de ambiente: ${envStoreId}`);
+    return envStoreId;
+  }
+
   const hostname = window.location.hostname;
 
-  // Desenvolvimento: localhost, 127.0.0.1, etc
+  // ✅ Desenvolvimento: localhost, 127.0.0.1, etc
   if (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
     hostname.startsWith("192.168.")
   ) {
-    // Usa variável de ambiente se configurada
-    const defaultStoreId = import.meta.env.VITE_DEFAULT_STORE_ID;
-
-    if (!defaultStoreId) {
-      console.warn("⚠️ Ambiente local sem VITE_DEFAULT_STORE_ID configurado");
-      console.warn(
-        "💡 Configure no arquivo .env: VITE_DEFAULT_STORE_ID=minha-loja"
-      );
-      return null;
-    }
-
-    console.log(`🏪 Ambiente local - usando loja: ${defaultStoreId}`);
-    return defaultStoreId;
+    console.log(`🏪 Ambiente local - usando loja padrão: ${DEFAULT_STORE_ID}`);
+    return DEFAULT_STORE_ID;
   }
 
-  // Produção: extrai subdomínio
+  // ✅ Produção: extrai subdomínio
   const parts = hostname.split(".");
 
-  // Se for apenas domínio.com (sem subdomínio), retorna null
+  // Se for apenas domínio.com (sem subdomínio) ou domínio.com.br
   if (parts.length < 3) {
-    console.warn(`⚠️ URL sem subdomínio: ${hostname}`);
-    return null;
+    console.log(
+      `🏪 Domínio principal (${hostname}) - usando loja padrão: ${DEFAULT_STORE_ID}`
+    );
+    return DEFAULT_STORE_ID;
   }
 
-  // Pega o primeiro segmento como storeId
-  const storeId = parts[0];
-  console.log(`🏪 Loja identificada: ${storeId} (${hostname})`);
+  // Pega o primeiro segmento
+  const subdomain = parts[0];
 
-  return storeId;
+  // ✅ IGNORA 'www' - considera como domínio principal
+  if (subdomain === "www") {
+    console.log(
+      `🏪 Domínio www detectado (${hostname}) - usando loja padrão: ${DEFAULT_STORE_ID}`
+    );
+    return DEFAULT_STORE_ID;
+  }
+
+  // ✅ Subdomínio válido encontrado
+  console.log(`🏪 Loja identificada: ${subdomain} (${hostname})`);
+  return subdomain;
 }
 
 /**
- * Obtém o storeId atual (com fallback para variável de ambiente)
- * @throws Error se não conseguir identificar a loja
+ * Obtém o storeId atual (com fallback para loja padrão)
+ * @returns storeId (nunca retorna null)
  */
 export function getCurrentStoreId(): string {
   const storeId = getStoreIdFromDomain();
 
   if (!storeId) {
-    throw new Error(
-      "Não foi possível identificar a loja. Configure VITE_DEFAULT_STORE_ID ou acesse via subdomínio."
+    console.warn(
+      `⚠️ Não foi possível identificar a loja, usando padrão: ${DEFAULT_STORE_ID}`
     );
+    return DEFAULT_STORE_ID;
   }
 
+  console.log(`✅ Store ID configurado: ${storeId}`);
   return storeId;
 }
 
