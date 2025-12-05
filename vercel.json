@@ -1,4 +1,28 @@
 {
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.selfmachine.com.br"
+        }
+      ],
+      "destination": "https://pastel1.selfmachine.com.br",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "selfmachine.com.br"
+        }
+      ],
+      "destination": "https://pastel1.selfmachine.com.br",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
