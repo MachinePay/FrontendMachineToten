@@ -1,10 +1,12 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useStore } from "../contexts/StoreContext"; // 🏪 MULTI-TENANT
 import Chatbot from "./Chatbot"; // Importação adicionada
 
 const Header: React.FC = () => {
   const { currentUser, logout } = useAuth();
+  const { store } = useStore(); // 🏪 Obtém configurações da loja
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -26,11 +28,19 @@ const Header: React.FC = () => {
             to={currentUser ? "/menu" : "/"}
             className="flex items-center gap-2 group"
           >
-            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-white text-xl shadow-sm group-hover:scale-105 transition-transform">
-              🥟
-            </div>
+            {store.logo ? (
+              <img
+                src={store.logo}
+                alt={`${store.name} logo`}
+                className="w-8 h-8 rounded-lg shadow-sm group-hover:scale-105 transition-transform object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-white text-xl shadow-sm group-hover:scale-105 transition-transform">
+                🥟
+              </div>
+            )}
             <span className="text-xl font-bold text-stone-800 tracking-tight">
-              Kiosk<span className="text-amber-600">Pro</span>
+              {store.name}
             </span>
           </NavLink>
         </div>

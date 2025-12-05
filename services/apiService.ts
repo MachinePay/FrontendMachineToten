@@ -1,4 +1,6 @@
-// Serviço de API com autenticação JWT
+// Serviço de API com autenticação JWT e Multi-tenant
+import { getCurrentStoreId } from "../utils/tenantResolver";
+
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_URL = `${BASE_URL}/api`;
 
@@ -7,6 +9,18 @@ const API_URL = `${BASE_URL}/api`;
  */
 export function getToken(): string | null {
   return localStorage.getItem("jwt_token");
+}
+
+/**
+ * Obtém o storeId atual para enviar nas requisições
+ */
+function getStoreId(): string | null {
+  try {
+    return getCurrentStoreId();
+  } catch (error) {
+    console.error("❌ Erro ao obter storeId:", error);
+    return null;
+  }
 }
 
 /**
@@ -70,7 +84,7 @@ export function isAuthenticated(): boolean {
 }
 
 /**
- * Um wrapper para o fetch que adiciona o token de autenticação automaticamente.
+ * Um wrapper para o fetch que adiciona o token de autenticação e storeId automaticamente.
  * @param url - A URL da API para chamar.
  * @param options - As opções do fetch (method, body, etc.).
  */
@@ -79,6 +93,7 @@ export async function authenticatedFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const token = getToken();
+  const storeId = getStoreId();
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -88,6 +103,11 @@ export async function authenticatedFetch(
   if (token) {
     // Adiciona o cabeçalho de autorização com o token
     headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  // 🏪 MULTI-TENANT: Adiciona storeId automaticamente
+  if (storeId) {
+    headers["x-store-id"] = storeId;
   }
 
   const response = await fetch(url, { ...options, headers });
@@ -109,12 +129,35 @@ export async function authenticatedFetch(
 }
 
 /**
+ * Fetch público que adiciona apenas o storeId (sem autenticação)
+ * Útil para rotas públicas como /api/menu
+ */
+export async function publicFetch(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const storeId = getStoreId();
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  // 🏪 MULTI-TENANT: Adiciona storeId automaticamente
+  if (storeId) {
+    headers["x-store-id"] = storeId;
+  }
+
+  return fetch(url, { ...options, headers });
+}
+
+/**
  * Funções auxiliares para operações comuns da API com autenticação
  */
 
 // Produtos (Admin)
 export async function getProducts() {
-  const response = await fetch(`${API_URL}/menu`);
+  const response = await publicFetch(`${API_URL}/menu`);
   return response.json();
 }
 

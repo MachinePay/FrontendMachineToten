@@ -9,7 +9,9 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // <--- IMPORTANTE
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
+import { StoreProvider, useStore } from "./contexts/StoreContext"; // 🏪 MULTI-TENANT
 import LoginPage from "./pages/LoginPage";
+import StoreNotFound from "./pages/StoreNotFound";
 import MenuPage from "./pages/MenuPage";
 import PaymentPage from "./pages/PaymentPage";
 import KitchenPage from "./pages/KitchenPage";
@@ -103,15 +105,17 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    // 2. Envolvendo a aplicação com o Provider do React Query
+    // 2. Envolvendo a aplicação com os Providers (incluindo StoreProvider para Multi-tenant)
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <CartProvider>
-          <HashRouter>
-            <RouterBody />
-          </HashRouter>
-        </CartProvider>
-      </AuthProvider>
+      <StoreProvider>
+        <AuthProvider>
+          <CartProvider>
+            <HashRouter>
+              <RouterBody />
+            </HashRouter>
+          </CartProvider>
+        </AuthProvider>
+      </StoreProvider>
     </QueryClientProvider>
   );
 };
@@ -119,6 +123,24 @@ const App: React.FC = () => {
 const RouterBody: React.FC = () => {
   const location = useLocation();
   const isScreensaver = location.pathname === "/";
+  const { store, loading, error } = useStore(); // 🏪 MULTI-TENANT
+
+  // Loading state enquanto carrega a loja
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-600 mx-auto mb-4"></div>
+          <p className="text-stone-600 font-medium">Carregando loja...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Erro ao carregar loja (404, etc)
+  if (error || !store) {
+    return <StoreNotFound />;
+  }
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-800">

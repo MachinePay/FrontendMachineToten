@@ -7,6 +7,7 @@ import {
   getDynamicCartSuggestion,
   getChefMessage,
 } from "../services/geminiService";
+import { getProducts } from "../services/apiService"; // 🏪 MULTI-TENANT
 import type { Product, CartItem } from "../types";
 
 // URL da API
@@ -433,7 +434,7 @@ const MenuPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { currentUser } = useAuth();
-  
+
   // AQUI ESTÁ A MÁGICA: Extraímos observation e setObservation do contexto
   const {
     cartItems,
@@ -444,13 +445,12 @@ const MenuPage: React.FC = () => {
     observation,
     setObservation,
   } = useCart();
-  
+
   const navigate = useNavigate();
 
   const fetchMenuData = async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/menu`);
-      const data: Product[] = await response.json();
+      const data = await getProducts(); // 🏪 Usa apiService com x-store-id
       setMenu(data);
     } catch (error) {
       console.error("Erro ao buscar menu:", error);
@@ -587,7 +587,7 @@ const MenuPage: React.FC = () => {
                     {category}
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-8">
-                    {products.map((product) => (
+                    {(products as Product[]).map((product) => (
                       <ProductCard
                         key={product.id}
                         product={product}

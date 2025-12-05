@@ -19,6 +19,7 @@ const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const MP_DEVICE_ID = process.env.MP_DEVICE_ID;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const KITCHEN_PASSWORD = process.env.KITCHEN_PASSWORD;
+const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
 const JWT_SECRET = process.env.JWT_SECRET;
 const REDIS_URL = process.env.REDIS_URL;
 
@@ -247,6 +248,30 @@ async function initDatabase() {
     console.log("✅ Coluna 'observation' adicionada à tabela orders");
   }
 
+  // ========== MULTI-TENANCY: Adiciona store_id nas tabelas ==========
+
+  // Adiciona store_id na tabela products
+  const hasProductStoreId = await db.schema.hasColumn("products", "store_id");
+  if (!hasProductStoreId) {
+    await db.schema.table("products", (table) => {
+      table.string("store_id").index(); // Indexado para performance
+    });
+    console.log(
+      "✅ [MULTI-TENANCY] Coluna 'store_id' adicionada à tabela products"
+    );
+  }
+
+  // Adiciona store_id na tabela orders
+  const hasOrderStoreId = await db.schema.hasColumn("orders", "store_id");
+  if (!hasOrderStoreId) {
+    await db.schema.table("orders", (table) => {
+      table.string("store_id").index(); // Indexado para performance
+    });
+    console.log(
+      "✅ [MULTI-TENANCY] Coluna 'store_id' adicionada à tabela orders"
+    );
+  }
+
   const result = await db("products").count("id as count").first();
   if (Number(result.count) === 0) {
     try {
@@ -368,7 +393,12 @@ app.post("/api/auth/login", (req, res) => {
 
 app.get("/api/menu", async (req, res) => {
   try {
-    const products = await db("products").select("*").orderBy("id");
+    // MULTI-TENANCY: Filtra produtos por store_id
+    const products = await db("products")
+      .where({ store_id: req.storeId })
+      .select("*")
+      .orderBy("id");
+
     res.json(
       products.map((p) => {
         const stockAvailable =
@@ -431,6 +461,46 @@ const authorizeKitchen = (req, res, next) => {
   next();
 };
 
+// ========== MIDDLEWARE MULTI-TENANCY ==========
+// Extrai e valida o storeId de cada requisição
+const extractStoreId = (req, res, next) => {
+  // Verifica se é uma rota que não precisa de storeId (rotas globais/públicas)
+  const publicRoutes = [
+    "/",
+    "/health",
+    "/api/auth/login",
+    "/api/webhooks/mercadopago",
+    "/api/notifications/mercadopago",
+    "/api/super-admin/dashboard", // Super Admin tem acesso global
+  ];
+
+  // Se for rota pública, pula validação
+  if (
+    publicRoutes.some(
+      (route) => req.path === route || req.path.startsWith(route)
+    )
+  ) {
+    return next();
+  }
+
+  // Extrai storeId do header ou query param
+  const storeId = req.headers["x-store-id"] || req.query.storeId;
+
+  if (!storeId) {
+    return res.status(400).json({
+      error:
+        "storeId é obrigatório. Envie via header 'x-store-id' ou query param 'storeId'",
+    });
+  }
+
+  // Anexa storeId ao request para uso nos endpoints
+  req.storeId = storeId;
+  next();
+};
+
+// Aplica middleware globalmente (exceto rotas públicas que já foram filtradas acima)
+app.use(extractStoreId);
+
 // CRUD de Produtos (Admin)
 
 app.post(
@@ -457,6 +527,7 @@ app.post(
         videoUrl: videoUrl || "",
         popular: popular || false,
         stock: stock !== undefined ? parseInt(stock) : null, // null = ilimitado
+        store_id: req.storeId, // MULTI-TENANCY: Associa produto à loja
       };
 
       await db("products").insert(newProduct);
@@ -481,9 +552,14 @@ app.put(
       req.body;
 
     try {
-      const exists = await db("products").where({ id }).first();
+      // MULTI-TENANCY: Busca produto apenas da loja específica
+      const exists = await db("products")
+        .where({ id, store_id: req.storeId })
+        .first();
       if (!exists) {
-        return res.status(404).json({ error: "Produto não encontrado" });
+        return res
+          .status(404)
+          .json({ error: "Produto não encontrado nesta loja" });
       }
 
       const updates = {};
@@ -496,9 +572,12 @@ app.put(
       if (stock !== undefined)
         updates.stock = stock === null ? null : parseInt(stock);
 
-      await db("products").where({ id }).update(updates);
+      // MULTI-TENANCY: Atualiza apenas se pertencer à loja
+      await db("products").where({ id, store_id: req.storeId }).update(updates);
 
-      const updated = await db("products").where({ id }).first();
+      const updated = await db("products")
+        .where({ id, store_id: req.storeId })
+        .first();
       res.json({
         ...updated,
         price: parseFloat(updated.price),
@@ -519,12 +598,18 @@ app.delete(
     const { id } = req.params;
 
     try {
-      const exists = await db("products").where({ id }).first();
+      // MULTI-TENANCY: Busca produto apenas da loja específica
+      const exists = await db("products")
+        .where({ id, store_id: req.storeId })
+        .first();
       if (!exists) {
-        return res.status(404).json({ error: "Produto não encontrado" });
+        return res
+          .status(404)
+          .json({ error: "Produto não encontrado nesta loja" });
       }
 
-      await db("products").where({ id }).del();
+      // MULTI-TENANCY: Deleta apenas se pertencer à loja
+      await db("products").where({ id, store_id: req.storeId }).del();
       res.json({ success: true, message: "Produto deletado com sucesso" });
     } catch (e) {
       console.error("Erro ao deletar produto:", e);
@@ -532,6 +617,31 @@ app.delete(
     }
   }
 );
+
+// Buscar usuário por CPF
+app.get("/api/users/cpf/:cpf", async (req, res) => {
+  try {
+    const cpfClean = String(req.params.cpf).replace(/\D/g, "");
+
+    if (cpfClean.length !== 11) {
+      return res.status(400).json({ error: "CPF inválido" });
+    }
+
+    const user = await db("users").where({ cpf: cpfClean }).first();
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    res.json({
+      ...user,
+      historico: parseJSON(user.historico),
+    });
+  } catch (e) {
+    console.error("Erro ao buscar usuário por CPF:", e);
+    res.status(500).json({ error: "Erro ao buscar usuário" });
+  }
+});
 
 app.get("/api/users", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
@@ -542,15 +652,85 @@ app.get("/api/users", authenticateToken, authorizeAdmin, async (req, res) => {
   }
 });
 
+// Login/Registro com CPF (retorna usuário existente ou cria novo)
+app.post("/api/users/login-cpf", async (req, res) => {
+  const { cpf, name } = req.body;
+
+  if (!cpf) {
+    return res.status(400).json({ error: "CPF obrigatório" });
+  }
+
+  const cpfClean = String(cpf).replace(/\D/g, "");
+
+  if (cpfClean.length !== 11) {
+    return res.status(400).json({ error: "CPF inválido" });
+  }
+
+  try {
+    // Busca usuário existente
+    let user = await db("users").where({ cpf: cpfClean }).first();
+
+    if (user) {
+      console.log(
+        `✅ Login CPF: Usuário existente encontrado - ${user.name} (${cpfClean})`
+      );
+      return res.json({
+        ...user,
+        historico: parseJSON(user.historico),
+        isNewUser: false,
+      });
+    }
+
+    // Cria novo usuário
+    console.log(
+      `📝 Login CPF: Criando novo usuário - ${name || "Sem Nome"} (${cpfClean})`
+    );
+
+    const newUser = {
+      id: `user_${Date.now()}`,
+      name: name || "Cliente",
+      email: null,
+      cpf: cpfClean,
+      historico: JSON.stringify([]),
+      pontos: 0,
+    };
+
+    await db("users").insert(newUser);
+
+    console.log(`✅ Novo usuário criado: ${newUser.id}`);
+
+    res.status(201).json({
+      ...newUser,
+      historico: [],
+      isNewUser: true,
+    });
+  } catch (e) {
+    console.error("❌ Erro no login por CPF:", e);
+    res.status(500).json({ error: "Erro ao processar login" });
+  }
+});
+
 app.post("/api/users", async (req, res) => {
   const { cpf, name, email, id } = req.body;
   if (!cpf) return res.status(400).json({ error: "CPF obrigatório" });
   const cpfClean = String(cpf).replace(/\D/g, "");
 
   try {
+    // Verifica se usuário já existe
     const exists = await db("users").where({ cpf: cpfClean }).first();
-    if (exists) return res.status(409).json({ error: "CPF já cadastrado" });
 
+    if (exists) {
+      console.log(
+        `ℹ️ CPF ${cpfClean} já cadastrado - retornando usuário existente`
+      );
+      return res.json({
+        ...exists,
+        historico: parseJSON(exists.historico),
+        message: "Usuário já existe - login realizado",
+      });
+    }
+
+    // Cria novo usuário
     const newUser = {
       id: id || `user_${Date.now()}`,
       name: name || "Sem Nome",
@@ -608,6 +788,7 @@ app.post("/api/orders", async (req, res) => {
     status: paymentId ? "active" : "pending_payment",
     paymentStatus: paymentId ? "paid" : "pending",
     paymentId: paymentId || null,
+    store_id: req.storeId, // MULTI-TENANCY: Associa pedido à loja
   };
 
   try {
@@ -630,10 +811,15 @@ app.post("/api/orders", async (req, res) => {
     console.log(`🔒 Reservando estoque de ${items.length} produto(s)...`);
 
     for (const item of items) {
-      const product = await db("products").where({ id: item.id }).first();
+      // MULTI-TENANCY: Busca produto apenas da loja específica
+      const product = await db("products")
+        .where({ id: item.id, store_id: req.storeId })
+        .first();
 
       if (!product) {
-        console.warn(`⚠️ Produto ${item.id} não encontrado no estoque`);
+        console.warn(
+          `⚠️ Produto ${item.id} não encontrado no estoque da loja ${req.storeId}`
+        );
         continue;
       }
 
@@ -2102,10 +2288,11 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
   }
 
   try {
-    // 1. Busca pedidos ativos (não finalizados)
+    // 1. Busca pedidos ativos (não finalizados) - ORDENADOS DO MAIS ANTIGO PARA O MAIS RECENTE
+    // Esta é a ordem BASE (FIFO) que a IA deve respeitar ao otimizar
     const orders = await db("orders")
       .where({ status: "active" })
-      .orderBy("timestamp", "asc")
+      .orderBy("timestamp", "asc") // ASC = Mais antigo primeiro (CORRETO!)
       .select("*");
 
     if (orders.length === 0) {
@@ -2203,32 +2390,46 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
           role: "system",
           content: `Você é um assistente de cozinha especializado em otimizar a ordem de preparo de pedidos.
 
-⚠️ REGRA FUNDAMENTAL: O PEDIDO MAIS ANTIGO (maior tempo de espera) DEVE APARECER NO INÍCIO DA LISTA!
+⚠️ REGRA FUNDAMENTAL (INEGOCIÁVEL):
+Pedido mais antigo (maior tempo de espera) DEVE aparecer PRIMEIRO na fila. SEMPRE!
 
 REGRAS DE PRIORIZAÇÃO (EM ORDEM DE IMPORTÂNCIA):
-1. **TEMPO DE ESPERA É PRIORIDADE MÁXIMA**: Pedidos com mais de 5 minutos esperando DEVEM ser priorizados
-2. **JUSTIÇA**: Pedidos que chegaram primeiro (ordem cronológica) têm prioridade maior
-3. **Exceção para pedidos rápidos**: APENAS se houver um pedido muito rápido (1 bebida/suco) entre pedidos complexos, pode adiantá-lo
-4. **Agrupe por equipamento**: Se dois pedidos usam a mesma fritadeira/forno, faça-os em sequência
-5. **Não atrase muito**: Um pedido pode ser adiantado em 1-2 posições, mas NUNCA deixe um pedido antigo ir para o fim da fila
+1. ⏰ TEMPO DE ESPERA É PRIORIDADE MÁXIMA: Pedidos mais antigos (aguardando há mais tempo) DEVEM vir PRIMEIRO na fila
+2. 🚨 Pedidos com >10 minutos de espera são CRÍTICOS e NÃO podem ser ultrapassados por nenhum outro
+3. 🎯 Pedidos com >5 minutos esperando SÃO PRIORITÁRIOS e devem estar no topo da fila
+4. ⚖️ JUSTIÇA: Ordem cronológica (FIFO - First In, First Out) tem prioridade ALTA sobre eficiência
+5. ⚡ EXCEÇÃO LIMITADA: Apenas pedidos MUITO rápidos (1 única bebida/suco) podem ser adiantados em 1-2 posições
+6. 🔥 Agrupe pedidos similares APENAS se tiverem tempo de espera semelhante (diferença <3 min)
 
-🎯 OBJETIVO: O primeiro pedido da lista deve ser o MAIS ANTIGO ou um pedido muito rápido que não atrase os outros.
+LÓGICA DE ORDENAÇÃO RIGOROSA:
+- Ordene SEMPRE do mais antigo (mais minutos esperando) para o mais recente
+- O pedido #1 da lista (mais antigo) NUNCA pode sair da posição 1, exceto por bebida única
+- Um pedido pode avançar APENAS 1-2 posições, NUNCA vai para o fim da fila
+- Só faça micro-ajustes se ganhar eficiência SEM prejudicar quem está esperando há mais tempo
+- Um pedido de 15 minutos NUNCA deve ficar atrás de um de 5 minutos
+- Um pedido de 8 minutos NUNCA deve ficar atrás de um de 2 minutos
+- Respeite a ordem de chegada (FIFO) como BASE ABSOLUTA
+
+LIMITE DE REORDENAÇÃO:
+- Pedido pode subir no máximo 2 posições (ex: #5 pode ir para #3, mas não para #1)
+- Pedido NUNCA pode descer mais de 2 posições (ex: #2 pode ir para #4, mas não para #7)
+- Se não houver ganho claro de eficiência, MANTENHA a ordem original
 
 RESPONDA NO FORMATO JSON:
 {
-  "priorityOrder": ["order_mais_antigo_primeiro", "order_segundo_mais_antigo", ...],
-  "reasoning": "Explicação breve focando no tempo de espera e ordem de chegada"
+  "priorityOrder": ["order_123", "order_456", ...],
+  "reasoning": "Explicação breve da estratégia"
 }
 
 Retorne APENAS o JSON, sem texto adicional.`,
         },
         {
           role: "user",
-          content: `Otimize a ordem de preparo destes pedidos (LEMBRE: mais antigo PRIMEIRO!):\n\n${ordersText}`,
+          content: `Otimize a ordem de preparo destes pedidos (ORDENADOS DO MAIS ANTIGO PARA O MAIS RECENTE):\n\n${ordersText}\n\nLEMBRETE: Priorize SEMPRE os pedidos com mais tempo de espera! O primeiro da lista está esperando há mais tempo.`,
         },
       ],
       max_tokens: 500,
-      temperature: 0.5,
+      temperature: 0.3,
     });
 
     const aiResponse = completion.choices[0].message.content.trim();
@@ -2264,10 +2465,36 @@ Retorne APENAS o JSON, sem texto adicional.`,
       .filter((o) => o !== undefined) // Remove IDs inválidos
       .map((o) => ({ ...o, items: parseJSON(o.items) }));
 
+    // 7. VALIDAÇÃO: Garante que pedidos antigos não foram muito atrasados pela IA
+    const originalOldest = orders[0]; // Pedido mais antigo (deveria ser o primeiro)
+    const optimizedOldestIndex = optimizedOrders.findIndex(
+      (o) => o.id === originalOldest?.id
+    );
+
+    // Se o pedido mais antigo foi movido para posição >2, REVERTE para ordem cronológica
+    if (optimizedOldestIndex > 2) {
+      console.log(
+        `⚠️ IA moveu pedido mais antigo (${originalOldest.id}) para posição ${
+          optimizedOldestIndex + 1
+        } - REVERTENDO para ordem cronológica`
+      );
+      return res.json({
+        orders: orders.map((o) => ({ ...o, items: parseJSON(o.items) })),
+        aiEnabled: false,
+        message: "IA tentou atrasar pedido antigo - usando ordem cronológica",
+        reasoning: "Segurança: Pedido mais antigo não pode ser muito atrasado",
+      });
+    }
+
     console.log(
       `✅ Ordem otimizada pela IA: ${optimizedOrders
         .map((o) => o.id)
         .join(", ")}`
+    );
+    console.log(
+      `✅ Validação: Pedido mais antigo (${
+        originalOldest?.id
+      }) está na posição ${optimizedOldestIndex + 1}`
     );
 
     // Salva no cache
@@ -2456,6 +2683,112 @@ Seja direto, prático e use emojis. Priorize ações que o administrador pode to
     }
   }
 );
+
+// ========== SUPER ADMIN DASHBOARD (MULTI-TENANCY) ==========
+// Endpoint protegido que ignora filtro de loja e retorna visão global
+app.get("/api/super-admin/dashboard", async (req, res) => {
+  try {
+    // Verifica autenticação de Super Admin via header
+    const superAdminPassword = req.headers["x-super-admin-password"];
+
+    if (!SUPER_ADMIN_PASSWORD) {
+      return res.status(503).json({
+        error:
+          "Super Admin não configurado. Defina SUPER_ADMIN_PASSWORD no servidor.",
+      });
+    }
+
+    if (superAdminPassword !== SUPER_ADMIN_PASSWORD) {
+      return res.status(401).json({
+        error: "Acesso negado. Senha de Super Admin inválida.",
+      });
+    }
+
+    console.log("🔐 Super Admin acessando dashboard global...");
+
+    // 1. Lista todas as store_id ativas (com pedidos ou produtos)
+    const storesFromOrders = await db("orders")
+      .distinct("store_id")
+      .whereNotNull("store_id");
+
+    const storesFromProducts = await db("products")
+      .distinct("store_id")
+      .whereNotNull("store_id");
+
+    // Combina e remove duplicatas
+    const allStoreIds = [
+      ...new Set([
+        ...storesFromOrders.map((s) => s.store_id),
+        ...storesFromProducts.map((s) => s.store_id),
+      ]),
+    ];
+
+    // 2. Calcula estatísticas por loja
+    const storeStats = await Promise.all(
+      allStoreIds.map(async (storeId) => {
+        // Total de pedidos
+        const orderCount = await db("orders")
+          .where({ store_id: storeId })
+          .count("id as count")
+          .first();
+
+        // Faturamento total (apenas pedidos pagos)
+        const revenue = await db("orders")
+          .where({ store_id: storeId })
+          .whereIn("paymentStatus", ["paid", "authorized"])
+          .sum("total as total")
+          .first();
+
+        // Total de produtos
+        const productCount = await db("products")
+          .where({ store_id: storeId })
+          .count("id as count")
+          .first();
+
+        // Pedidos ativos (na cozinha)
+        const activeOrders = await db("orders")
+          .where({ store_id: storeId, status: "active" })
+          .count("id as count")
+          .first();
+
+        return {
+          store_id: storeId,
+          total_orders: Number(orderCount.count) || 0,
+          total_revenue: parseFloat(revenue.total) || 0,
+          total_products: Number(productCount.count) || 0,
+          active_orders: Number(activeOrders.count) || 0,
+        };
+      })
+    );
+
+    // 3. Estatísticas globais
+    const globalStats = {
+      total_stores: allStoreIds.length,
+      total_orders: storeStats.reduce((sum, s) => sum + s.total_orders, 0),
+      total_revenue: storeStats.reduce((sum, s) => sum + s.total_revenue, 0),
+      total_products: storeStats.reduce((sum, s) => sum + s.total_products, 0),
+      total_active_orders: storeStats.reduce(
+        (sum, s) => sum + s.active_orders,
+        0
+      ),
+    };
+
+    console.log(`✅ Dashboard gerado: ${allStoreIds.length} loja(s) ativa(s)`);
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      global_stats: globalStats,
+      stores: storeStats.sort((a, b) => b.total_revenue - a.total_revenue), // Ordena por faturamento
+    });
+  } catch (error) {
+    console.error("❌ Erro no Super Admin Dashboard:", error);
+    res.status(500).json({
+      error: "Erro ao gerar dashboard",
+      message: error.message,
+    });
+  }
+});
 
 // --- Inicialização ---
 console.log("🚀 Iniciando servidor...");
