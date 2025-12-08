@@ -13,13 +13,19 @@ export function getToken(): string | null {
 
 /**
  * Obtém o storeId atual para enviar nas requisições
+ * SEMPRE retorna um valor (nunca null)
  */
-function getStoreId(): string | null {
+function getStoreId(): string {
   try {
-    return getCurrentStoreId();
+    const storeId = getCurrentStoreId();
+    console.log(`🏪 [apiService] Store ID detectado: ${storeId}`);
+    return storeId;
   } catch (error) {
     console.error("❌ Erro ao obter storeId:", error);
-    return null;
+    // Fallback para garantir que sempre tenha um valor
+    const fallback = "pastel1";
+    console.warn(`⚠️ Usando store ID fallback: ${fallback}`);
+    return fallback;
   }
 }
 
@@ -101,10 +107,11 @@ export async function authenticatedFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const token = getToken();
-  const storeId = getStoreId();
+  const storeId = getStoreId(); // SEMPRE retorna um valor
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    "x-store-id": storeId, // 🏪 MULTI-TENANT: SEMPRE incluído
     ...(options.headers || {}),
   };
 
@@ -113,11 +120,7 @@ export async function authenticatedFetch(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // 🏪 MULTI-TENANT: Adiciona storeId automaticamente
-  if (storeId) {
-    headers["x-store-id"] = storeId;
-  }
-
+  console.log(`📡 [authenticatedFetch] ${url} | Store: ${storeId}`);
   const response = await fetch(url, { ...options, headers });
 
   // Se o token for inválido/expirado (401 ou 403), limpa o token e desconecta
@@ -144,21 +147,15 @@ export async function publicFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const storeId = getStoreId();
+  const storeId = getStoreId(); // SEMPRE retorna um valor
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    "x-store-id": storeId, // 🏪 MULTI-TENANT: SEMPRE incluído
     ...(options.headers || {}),
   };
 
-  // 🏪 MULTI-TENANT: Adiciona storeId automaticamente
-  if (storeId) {
-    headers["x-store-id"] = storeId;
-    console.log(`📡 Requisição pública: ${url} | Store ID: ${storeId}`);
-  } else {
-    console.warn("⚠️ Requisição pública sem Store ID:", url);
-  }
-
+  console.log(`📡 [publicFetch] ${url} | Store ID: ${storeId}`);
   return fetch(url, { ...options, headers });
 }
 
