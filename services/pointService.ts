@@ -1,31 +1,43 @@
 // Serviço para interação com a Point Smart 2 do Mercado Pago
+import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 /**
  * Configura a Point Smart 2 em modo PDV (Ponto de Venda)
  * Isso bloqueia o menu da maquininha e mantém ela vinculada ao sistema
  */
-export const configurePoint = async (): Promise<{ success: boolean; error?: string }> => {
+export const configurePoint = async (): Promise<{
+  success: boolean;
+  error?: string;
+}> => {
   try {
+    const storeId = getCurrentStoreId();
     const response = await fetch(`${API_URL}/api/point/configure`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-store-id": storeId, // 🏪 MULTI-TENANT
+      },
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
-      console.log('✅ Point Smart 2 configurada em modo PDV');
-      console.log('🔒 Menu bloqueado - apenas comandos via API');
+      console.log("✅ Point Smart 2 configurada em modo PDV");
+      console.log("🔒 Menu bloqueado - apenas comandos via API");
       return { success: true };
     } else {
-      console.warn('⚠️ Point não configurada:', data.error);
+      console.warn("⚠️ Point não configurada:", data.error);
       return { success: false, error: data.error };
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    console.warn('⚠️ Erro ao configurar Point (pode não estar conectada):', errorMessage);
+    const errorMessage =
+      error instanceof Error ? error.message : "Erro desconhecido";
+    console.warn(
+      "⚠️ Erro ao configurar Point (pode não estar conectada):",
+      errorMessage
+    );
     return { success: false, error: errorMessage };
   }
 };
@@ -43,21 +55,25 @@ export const checkPointStatus = async (): Promise<{
   error?: string;
 }> => {
   try {
-    const response = await fetch(`${API_URL}/api/point/status`);
+    const storeId = getCurrentStoreId();
+    const response = await fetch(`${API_URL}/api/point/status`, {
+      headers: { "x-store-id": storeId }, // 🏪 MULTI-TENANT
+    });
     const data = await response.json();
-    
+
     if (data.connected) {
-      console.log('✅ Point conectada:', data.model || 'Point Smart 2');
-      console.log('📱 Modo:', data.operating_mode || 'N/A');
-      console.log('🔗 Status:', data.status || 'N/A');
+      console.log("✅ Point conectada:", data.model || "Point Smart 2");
+      console.log("📱 Modo:", data.operating_mode || "N/A");
+      console.log("🔗 Status:", data.status || "N/A");
       return data;
     } else {
-      console.warn('⚠️ Point não conectada:', data.error);
+      console.warn("⚠️ Point não conectada:", data.error);
       return { connected: false, error: data.error };
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    console.error('❌ Erro ao verificar status da Point:', errorMessage);
+    const errorMessage =
+      error instanceof Error ? error.message : "Erro desconhecido";
+    console.error("❌ Erro ao verificar status da Point:", errorMessage);
     return { connected: false, error: errorMessage };
   }
 };
@@ -66,25 +82,34 @@ export const checkPointStatus = async (): Promise<{
  * Limpa toda a fila de pagamentos da Point Smart 2
  * Usado após pagamento aprovado para evitar que o botão verde retorne ao pagamento anterior
  */
-export const clearPaymentQueue = async (): Promise<{ success: boolean; cleared: number; error?: string }> => {
+export const clearPaymentQueue = async (): Promise<{
+  success: boolean;
+  cleared: number;
+  error?: string;
+}> => {
   try {
+    const storeId = getCurrentStoreId();
     const response = await fetch(`${API_URL}/api/payment/clear-queue`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-store-id": storeId, // 🏪 MULTI-TENANT
+      },
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       console.log(`✅ Fila limpa: ${data.cleared} pagamento(s) removido(s)`);
       return { success: true, cleared: data.cleared };
     } else {
-      console.warn('⚠️ Erro ao limpar fila:', data.error);
+      console.warn("⚠️ Erro ao limpar fila:", data.error);
       return { success: false, cleared: 0, error: data.error };
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    console.error('❌ Erro ao limpar fila de pagamentos:', errorMessage);
+    const errorMessage =
+      error instanceof Error ? error.message : "Erro desconhecido";
+    console.error("❌ Erro ao limpar fila de pagamentos:", errorMessage);
     return { success: false, cleared: 0, error: errorMessage };
   }
 };

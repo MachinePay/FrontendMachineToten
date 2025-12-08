@@ -451,9 +451,21 @@ const MenuPage: React.FC = () => {
   const fetchMenuData = async () => {
     try {
       const data = await getProducts(); // 🏪 Usa apiService com x-store-id
-      setMenu(data);
+
+      // ✅ Valida se é array antes de setar
+      if (Array.isArray(data)) {
+        setMenu(data);
+        console.log(`✅ ${data.length} produtos carregados`);
+      } else {
+        console.error(
+          "❌ Backend retornou dados inválidos (não é array):",
+          data
+        );
+        setMenu([]);
+      }
     } catch (error) {
-      console.error("Erro ao buscar menu:", error);
+      console.error("❌ Erro ao buscar menu:", error);
+      setMenu([]); // ✅ Garante array vazio em caso de erro
     }
   };
 
@@ -520,6 +532,11 @@ const MenuPage: React.FC = () => {
   };
 
   const categorizedMenu = useMemo(() => {
+    // ✅ Proteção: garante que menu é array antes de usar .reduce
+    if (!Array.isArray(menu) || menu.length === 0) {
+      return {} as Record<string, Product[]>;
+    }
+
     return menu.reduce((acc, product) => {
       const categoryKey = product.category as Product["category"];
       if (!acc[categoryKey]) acc[categoryKey] = [];

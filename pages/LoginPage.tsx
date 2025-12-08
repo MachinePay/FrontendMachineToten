@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
+import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
 import type { User } from "../types";
 
 // --- Componente WelcomeScreen ---
@@ -129,15 +130,24 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
     setError("");
 
     try {
+      const storeId = getCurrentStoreId();
       // Nova rota do backend para login com CPF
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/users/login-cpf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: cleanCPF, name: "Cliente" })
-      });
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:3001"
+        }/api/users/login-cpf`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-store-id": storeId, // 🏪 MULTI-TENANT
+          },
+          body: JSON.stringify({ cpf: cleanCPF, name: "Cliente" }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Erro ao fazer login');
+        throw new Error("Erro ao fazer login");
       }
 
       const user = await response.json();
@@ -146,31 +156,33 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
       if (user.isNewUser) {
         // Usuário foi criado agora
         await Swal.fire({
-          title: '🎉 Bem-vindo!',
+          title: "🎉 Bem-vindo!",
           html: `Olá, <strong>${user.name}</strong>!<br><br>Sua conta foi criada com sucesso.<br>Aproveite nossos deliciosos pastéis!`,
-          icon: 'success',
-          confirmButtonColor: '#f59e0b',
-          confirmButtonText: 'Começar Pedido',
+          icon: "success",
+          confirmButtonColor: "#f59e0b",
+          confirmButtonText: "Começar Pedido",
           timer: 3000,
-          timerProgressBar: true
+          timerProgressBar: true,
         });
         onLoginSuccess(user);
       } else {
         // Usuário já existia
         await Swal.fire({
-          title: '👋 Bem-vindo de volta!',
-          html: `Olá, <strong>${user.name}</strong>!<br><br>Você tem <strong>${user.pontos || 0} pontos</strong> acumulados! 🌟`,
-          icon: 'success',
-          confirmButtonColor: '#f59e0b',
-          confirmButtonText: 'Ver Cardápio',
+          title: "👋 Bem-vindo de volta!",
+          html: `Olá, <strong>${user.name}</strong>!<br><br>Você tem <strong>${
+            user.pontos || 0
+          } pontos</strong> acumulados! 🌟`,
+          icon: "success",
+          confirmButtonColor: "#f59e0b",
+          confirmButtonText: "Ver Cardápio",
           timer: 3000,
-          timerProgressBar: true
+          timerProgressBar: true,
         });
         onLoginSuccess(user);
       }
     } catch (err) {
       setError("Erro ao buscar CPF. Tente novamente.");
-      console.error('Erro no login:', err);
+      console.error("Erro no login:", err);
     } finally {
       setIsLoading(false);
     }
@@ -293,11 +305,18 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
         pontos: 0,
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const storeId = getCurrentStoreId();
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/users`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-store-id": storeId, // 🏪 MULTI-TENANT
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (res.status === 409) {
         setError("CPF já cadastrado. Faça login.");

@@ -146,6 +146,9 @@ export async function publicFetch(
   // 🏪 MULTI-TENANT: Adiciona storeId automaticamente
   if (storeId) {
     headers["x-store-id"] = storeId;
+    console.log(`📡 Requisição pública: ${url} | Store ID: ${storeId}`);
+  } else {
+    console.warn("⚠️ Requisição pública sem Store ID:", url);
   }
 
   return fetch(url, { ...options, headers });
@@ -157,8 +160,32 @@ export async function publicFetch(
 
 // Produtos (Admin)
 export async function getProducts() {
-  const response = await publicFetch(`${API_URL}/menu`);
-  return response.json();
+  try {
+    const response = await publicFetch(`${API_URL}/menu`);
+
+    // ✅ Verifica se a resposta foi bem-sucedida
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `❌ Erro ao buscar produtos (${response.status}):`,
+        errorText
+      );
+      throw new Error(`Backend error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    // ✅ Valida se é array
+    if (!Array.isArray(data)) {
+      console.error("❌ Backend retornou dados inválidos (não é array):", data);
+      return [];
+    }
+
+    return data;
+  } catch (error) {
+    console.error("❌ Erro ao buscar produtos:", error);
+    return []; // ✅ Retorna array vazio em caso de erro
+  }
 }
 
 export async function createProduct(productData: any) {

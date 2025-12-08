@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Order } from "../types";
 import { authenticatedFetch } from "../services/apiService";
 import { useAuth } from "../contexts/AuthContext";
+import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
 
 // Interface para resposta da IA
 interface AIKitchenResponse {
@@ -165,7 +166,12 @@ const KitchenPage: React.FC = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const resp = await fetch(`${BACKEND_URL}/api/ai/kitchen-priority`);
+      const storeId = getCurrentStoreId();
+      const resp = await fetch(`${BACKEND_URL}/api/ai/kitchen-priority`, {
+        headers: {
+          "x-store-id": storeId,
+        },
+      });
       const data: AIKitchenResponse = await resp.json();
 
       setActiveOrders(data.orders);

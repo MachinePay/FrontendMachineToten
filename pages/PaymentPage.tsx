@@ -5,9 +5,21 @@ import { useQuery } from "@tanstack/react-query"; // Importação Nova
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
 import { clearPaymentQueue } from "../services/pointService";
+import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
 import type { Order, CartItem } from "../types";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+// 🏪 Helper para adicionar x-store-id em todas as requisições
+const fetchWithStoreId = async (url: string, options: RequestInit = {}) => {
+  const storeId = getCurrentStoreId();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+    "x-store-id": storeId,
+  };
+  return fetch(url, { ...options, headers });
+};
 
 // Tipo para controlar o pagamento ativo
 type ActivePaymentState = {
@@ -47,7 +59,7 @@ const PaymentPage: React.FC = () => {
     queryFn: async () => {
       if (!activePayment) return null;
       const endpoint = activePayment.type === "pix" ? "pix" : "payment";
-      const response = await fetch(
+      const response = await fetchWithStoreId(
         `${BACKEND_URL}/api/${endpoint}/status/${activePayment.id}`
       );
       if (!response.ok) throw new Error("Erro ao verificar status");
@@ -110,10 +122,13 @@ const PaymentPage: React.FC = () => {
           `🧹 Cleanup: Cancelando pagamento ${paymentIdRef.current} no backend...`
         );
         // Usa fetch com keepalive para garantir que o cancelamento vá mesmo fechando a aba
-        fetch(`${BACKEND_URL}/api/payment/cancel/${paymentIdRef.current}`, {
-          method: "DELETE",
-          keepalive: true,
-        }).catch((err) => console.error("Erro no cleanup:", err));
+        fetchWithStoreId(
+          `${BACKEND_URL}/api/payment/cancel/${paymentIdRef.current}`,
+          {
+            method: "DELETE",
+            keepalive: true,
+          }
+        ).catch((err) => console.error("Erro no cleanup:", err));
       }
     };
   }, []);
@@ -154,9 +169,8 @@ const PaymentPage: React.FC = () => {
   ) => {
     try {
       // 1. Atualiza pedido no banco
-      await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
+      await fetchWithStoreId(`${BACKEND_URL}/api/orders/${orderId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ paymentId, paymentStatus: "paid" }),
       });
 
@@ -207,9 +221,8 @@ const PaymentPage: React.FC = () => {
   // --- Helpers de Criação ---
 
   const createOrder = async () => {
-    const orderResp = await fetch(`${BACKEND_URL}/api/orders`, {
+    const orderResp = await fetchWithStoreId(`${BACKEND_URL}/api/orders`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId: currentUser!.id,
         userName: currentUser!.name,
@@ -238,15 +251,17 @@ const PaymentPage: React.FC = () => {
     try {
       const orderId = await createOrder();
 
-      const createResp = await fetch(`${BACKEND_URL}/api/pix/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: cartTotal,
-          description: `Pedido de ${currentUser!.name}`,
-          orderId: orderId,
-        }),
-      });
+      const createResp = await fetchWithStoreId(
+        `${BACKEND_URL}/api/pix/create`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            amount: cartTotal,
+            description: `Pedido de ${currentUser!.name}`,
+            orderId: orderId,
+          }),
+        }
+      );
 
       const pixData = await createResp.json();
       if (!pixData.paymentId || !pixData.qrCodeBase64)
@@ -271,16 +286,19 @@ const PaymentPage: React.FC = () => {
     try {
       const orderId = await createOrder();
 
-      const createResp = await fetch(`${BACKEND_URL}/api/payment/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: cartTotal,
-          description: `Pedido ${currentUser!.name}`,
-          orderId: orderId,
-          paymentMethod: paymentMethod,
-        }),
-      });
+      const createResp = await fetchWithStoreId(
+        `${BACKEND_URL}/api/payment/create`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: cartTotal,
+            description: `Pedido ${currentUser!.name}`,
+            orderId: orderId,
+            paymentMethod: paymentMethod,
+          }),
+        }
+      );
 
       const paymentData = await createResp.json();
       if (!paymentData.id) throw new Error("Erro na maquininha");
@@ -310,9 +328,12 @@ const PaymentPage: React.FC = () => {
 
     if (result.isConfirmed) {
       try {
-        await fetch(`${BACKEND_URL}/api/payment/cancel/${activePayment.id}`, {
-          method: "DELETE",
-        });
+        await fetchWithStoreId(
+          `${BACKEND_URL}/api/payment/cancel/${activePayment.id}`,
+          {
+            method: "DELETE",
+          }
+        );
         setActivePayment(null); // Para o polling imediatamente
         setStatus("idle");
         setQrCodeBase64(null);

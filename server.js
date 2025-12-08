@@ -250,25 +250,81 @@ async function initDatabase() {
 
   // ========== MULTI-TENANCY: Adiciona store_id nas tabelas ==========
 
-  // Adiciona store_id na tabela products
-  const hasProductStoreId = await db.schema.hasColumn("products", "store_id");
-  if (!hasProductStoreId) {
-    await db.schema.table("products", (table) => {
-      table.string("store_id").index(); // Indexado para performance
-    });
+  console.log(
+    "🔍 [MULTI-TENANCY] Forçando criação de colunas com SQL bruto..."
+  );
+
+  // FORÇAR com SQL bruto (ignora cache do Knex)
+  try {
+    await db.raw(
+      "ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id VARCHAR(255)"
+    );
+    console.log("✅ [MULTI-TENANCY] Coluna store_id em products (SQL bruto)");
+  } catch (err) {
     console.log(
-      "✅ [MULTI-TENANCY] Coluna 'store_id' adicionada à tabela products"
+      "ℹ️ [MULTI-TENANCY] Coluna store_id já existe em products:",
+      err.message
     );
   }
 
-  // Adiciona store_id na tabela orders
-  const hasOrderStoreId = await db.schema.hasColumn("orders", "store_id");
-  if (!hasOrderStoreId) {
-    await db.schema.table("orders", (table) => {
-      table.string("store_id").index(); // Indexado para performance
-    });
+  try {
+    await db.raw(
+      "CREATE INDEX IF NOT EXISTS products_store_id_index ON products(store_id)"
+    );
+    console.log("✅ [MULTI-TENANCY] Índice criado em products.store_id");
+  } catch (err) {
+    console.log("ℹ️ [MULTI-TENANCY] Índice já existe:", err.message);
+  }
+
+  try {
+    await db.raw(
+      "ALTER TABLE orders ADD COLUMN IF NOT EXISTS store_id VARCHAR(255)"
+    );
+    console.log("✅ [MULTI-TENANCY] Coluna store_id em orders (SQL bruto)");
+  } catch (err) {
     console.log(
-      "✅ [MULTI-TENANCY] Coluna 'store_id' adicionada à tabela orders"
+      "ℹ️ [MULTI-TENANCY] Coluna store_id já existe em orders:",
+      err.message
+    );
+  }
+
+  try {
+    await db.raw(
+      "CREATE INDEX IF NOT EXISTS orders_store_id_index ON orders(store_id)"
+    );
+    console.log("✅ [MULTI-TENANCY] Índice criado em orders.store_id");
+  } catch (err) {
+    console.log("ℹ️ [MULTI-TENANCY] Índice já existe:", err.message);
+  }
+
+  // ========== MIGRAÇÃO: Atribui store_id padrão para produtos/pedidos existentes ==========
+  const productsWithoutStore = await db("products")
+    .whereNull("store_id")
+    .count("id as count")
+    .first();
+
+  if (Number(productsWithoutStore.count) > 0) {
+    console.log(
+      `🔄 [MIGRAÇÃO] Encontrados ${productsWithoutStore.count} produtos sem store_id`
+    );
+    await db("products").whereNull("store_id").update({ store_id: "pastel1" }); // Loja padrão
+    console.log(
+      `✅ [MIGRAÇÃO] ${productsWithoutStore.count} produtos atribuídos à loja 'pastel1'`
+    );
+  }
+
+  const ordersWithoutStore = await db("orders")
+    .whereNull("store_id")
+    .count("id as count")
+    .first();
+
+  if (Number(ordersWithoutStore.count) > 0) {
+    console.log(
+      `🔄 [MIGRAÇÃO] Encontrados ${ordersWithoutStore.count} pedidos sem store_id`
+    );
+    await db("orders").whereNull("store_id").update({ store_id: "pastel1" }); // Loja padrão
+    console.log(
+      `✅ [MIGRAÇÃO] ${ordersWithoutStore.count} pedidos atribuídos à loja 'pastel1'`
     );
   }
 
@@ -389,15 +445,67 @@ app.post("/api/auth/login", (req, res) => {
   }
 });
 
+// ========== MIDDLEWARE MULTI-TENANCY ==========
+// Extrai e valida o storeId de cada requisição
+const extractStoreId = (req, res, next) => {
+  console.log(`🔍 [MIDDLEWARE] Rota: ${req.method} ${req.path}`);
+  console.log(`🔍 [MIDDLEWARE] Headers:`, JSON.stringify(req.headers, null, 2));
+
+  // Verifica se é uma rota que não precisa de storeId (rotas globais/públicas)
+  const publicRoutes = [
+    "/",
+    "/health",
+    "/api/auth/login",
+    "/api/webhooks/mercadopago",
+    "/api/notifications/mercadopago",
+    "/api/super-admin/dashboard", // Super Admin tem acesso global
+    "/api/point/configure",
+    "/api/point/status",
+  ];
+
+  // Se for rota pública, pula validação (match EXATO apenas)
+  if (publicRoutes.includes(req.path)) {
+    console.log(`✅ [MIDDLEWARE] Rota pública, pulando validação`);
+    return next();
+  }
+
+  // Extrai storeId do header ou query param
+  const storeId = req.headers["x-store-id"] || req.query.storeId;
+  console.log(`🔍 [MIDDLEWARE] storeId extraído: ${storeId}`);
+
+  if (!storeId) {
+    console.log(`❌ [MIDDLEWARE] storeId ausente!`);
+    return res.status(400).json({
+      error:
+        "storeId é obrigatório. Envie via header 'x-store-id' ou query param 'storeId'",
+    });
+  }
+
+  // Anexa storeId ao request para uso nos endpoints
+  req.storeId = storeId;
+  console.log(`✅ [MIDDLEWARE] storeId anexado ao request: ${req.storeId}`);
+  next();
+};
+
+// ========== APLICA MIDDLEWARE MULTI-TENANCY ==========
+// IMPORTANTE: Deve vir ANTES de todas as rotas da API
+app.use(extractStoreId);
+
 // --- Rotas da API (Menu, Usuários, Pedidos) ---
 
 app.get("/api/menu", async (req, res) => {
   try {
+    console.log(`📋 [GET /api/menu] Store ID recebido: ${req.storeId}`);
+
     // MULTI-TENANCY: Filtra produtos por store_id
     const products = await db("products")
       .where({ store_id: req.storeId })
       .select("*")
       .orderBy("id");
+
+    console.log(
+      `✅ [GET /api/menu] Retornando ${products.length} produtos da loja ${req.storeId}`
+    );
 
     res.json(
       products.map((p) => {
@@ -417,7 +525,14 @@ app.get("/api/menu", async (req, res) => {
       })
     );
   } catch (e) {
-    res.status(500).json({ error: "Erro ao buscar menu" });
+    console.error(`❌ [GET /api/menu] ERRO ao buscar menu:`, e.message);
+    console.error(`❌ [GET /api/menu] Stack:`, e.stack);
+    console.error(`❌ [GET /api/menu] Store ID: ${req.storeId}`);
+    res.status(500).json({
+      error: "Erro ao buscar menu",
+      details: e.message,
+      storeId: req.storeId,
+    });
   }
 });
 
@@ -460,46 +575,6 @@ const authorizeKitchen = (req, res, next) => {
   }
   next();
 };
-
-// ========== MIDDLEWARE MULTI-TENANCY ==========
-// Extrai e valida o storeId de cada requisição
-const extractStoreId = (req, res, next) => {
-  // Verifica se é uma rota que não precisa de storeId (rotas globais/públicas)
-  const publicRoutes = [
-    "/",
-    "/health",
-    "/api/auth/login",
-    "/api/webhooks/mercadopago",
-    "/api/notifications/mercadopago",
-    "/api/super-admin/dashboard", // Super Admin tem acesso global
-  ];
-
-  // Se for rota pública, pula validação
-  if (
-    publicRoutes.some(
-      (route) => req.path === route || req.path.startsWith(route)
-    )
-  ) {
-    return next();
-  }
-
-  // Extrai storeId do header ou query param
-  const storeId = req.headers["x-store-id"] || req.query.storeId;
-
-  if (!storeId) {
-    return res.status(400).json({
-      error:
-        "storeId é obrigatório. Envie via header 'x-store-id' ou query param 'storeId'",
-    });
-  }
-
-  // Anexa storeId ao request para uso nos endpoints
-  req.storeId = storeId;
-  next();
-};
-
-// Aplica middleware globalmente (exceto rotas públicas que já foram filtradas acima)
-app.use(extractStoreId);
 
 // CRUD de Produtos (Admin)
 
@@ -2174,15 +2249,10 @@ app.post("/api/ai/suggestion", async (req, res) => {
   try {
     console.log("🤖 Chamando OpenAI para sugestão...");
 
-    // Busca TODOS os produtos disponíveis no catálogo
-    const products = await db("products").select(
-      "id",
-      "name",
-      "description",
-      "price",
-      "category",
-      "stock"
-    );
+    // Busca produtos disponíveis da loja (MULTI-TENANCY)
+    const products = await db("products")
+      .where({ store_id: req.storeId })
+      .select("id", "name", "description", "price", "category", "stock");
     const availableProducts = products.filter(
       (p) => p.stock === null || p.stock > 0
     );
@@ -2273,7 +2343,7 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
     // Se IA indisponível, retorna ordem cronológica normal
     try {
       const orders = await db("orders")
-        .where({ status: "active" })
+        .where({ status: "active", store_id: req.storeId })
         .orderBy("timestamp", "asc")
         .select("*");
 
@@ -2291,7 +2361,7 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
     // 1. Busca pedidos ativos (não finalizados) - ORDENADOS DO MAIS ANTIGO PARA O MAIS RECENTE
     // Esta é a ordem BASE (FIFO) que a IA deve respeitar ao otimizar
     const orders = await db("orders")
-      .where({ status: "active" })
+      .where({ status: "active", store_id: req.storeId })
       .orderBy("timestamp", "asc") // ASC = Mais antigo primeiro (CORRETO!)
       .select("*");
 
@@ -2333,8 +2403,10 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
     console.log("🍳 Mudança detectada - recalculando com IA...");
     console.log(`📋 ${orders.length} pedido(s) na fila`);
 
-    // 2. Busca informações dos produtos para calcular complexidade
-    const products = await db("products").select("*");
+    // 2. Busca informações dos produtos para calcular complexidade (MULTI-TENANCY)
+    const products = await db("products")
+      .where({ store_id: req.storeId })
+      .select("*");
     const productMap = {};
     products.forEach((p) => {
       productMap[p.id] = p;
@@ -2550,13 +2622,17 @@ app.get(
     try {
       console.log("🤖 Iniciando análise inteligente de estoque...");
 
-      // 1. Buscar todos os produtos com estoque
-      const products = await db("products").select("*").orderBy("category");
+      // 1. Buscar produtos com estoque da loja (MULTI-TENANCY)
+      const products = await db("products")
+        .where({ store_id: req.storeId })
+        .select("*")
+        .orderBy("category");
 
-      // 2. Buscar histórico de pedidos (últimos 30 dias)
+      // 2. Buscar histórico de pedidos da loja (últimos 30 dias - MULTI-TENANCY)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const orders = await db("orders")
+        .where({ store_id: req.storeId })
         .where("timestamp", ">=", thirtyDaysAgo.toISOString())
         .select("*");
 
