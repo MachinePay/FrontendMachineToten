@@ -63,8 +63,8 @@ const Chatbot: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className={`p-2 rounded-full transition-all duration-200 flex items-center gap-2 ${
           isOpen
-            ? "bg-amber-100 text-amber-700"
-            : "text-stone-500 hover:bg-stone-100 hover:text-amber-600"
+            ? "bg-red-100 text-red-700"
+            : "text-stone-500 hover:bg-stone-100 hover:text-red-600"
         }`}
         title="Ajuda com IA"
       >
@@ -96,14 +96,14 @@ const Chatbot: React.FC = () => {
 
           <div className="absolute right-0 top-12 w-80 sm:w-96 h-[500px] bg-white rounded-xl shadow-2xl flex flex-col z-50 border border-stone-200 overflow-hidden animate-fade-in-down origin-top-right">
             {/* Cabeçalho */}
-            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
                   🤖
                 </div>
                 <div>
                   <h3 className="font-bold text-sm">Atendente Virtual</h3>
-                  <p className="text-xs text-amber-100">Kiosk Pro AI</p>
+                  <p className="text-xs text-red-100">Sushi Man AI</p>
                 </div>
               </div>
               <button
@@ -126,7 +126,7 @@ const Chatbot: React.FC = () => {
                   <div
                     className={`rounded-2xl px-4 py-2 max-w-[85%] text-sm shadow-sm ${
                       msg.sender === "user"
-                        ? "bg-amber-500 text-white rounded-br-none"
+                        ? "bg-red-600 text-white rounded-br-none"
                         : "bg-white text-stone-700 border border-stone-100 rounded-bl-none"
                     }`}
                   >
@@ -160,12 +160,12 @@ const Chatbot: React.FC = () => {
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   placeholder="Digite sua dúvida..."
-                  className="flex-1 px-4 py-2 bg-stone-100 border-0 rounded-full focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all text-sm"
+                  className="flex-1 px-4 py-2 bg-stone-100 border-0 rounded-full focus:ring-2 focus:ring-red-600 focus:bg-white transition-all text-sm"
                   disabled={isLoading}
                 />
                 <button
                   type="submit"
-                  className="bg-amber-500 text-white p-2 rounded-full hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                  className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                   disabled={isLoading || !userInput.trim()}
                 >
                   <svg

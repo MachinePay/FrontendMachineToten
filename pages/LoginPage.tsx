@@ -37,7 +37,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-100 to-red-50 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-10">
         <div className="text-center mb-8">
           <img
@@ -45,9 +45,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             alt="Self Machine"
             className="w-48 h-auto mx-auto mb-6 rounded-xl shadow-lg"
           />
-          <h1 className="text-4xl font-bold text-amber-800 mb-2">
-            MachineToten
-          </h1>
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Sushi Man</h1>
           <p className="text-stone-600">
             Bem-vindo à nossa deliciosa experiência!
           </p>
@@ -70,7 +68,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 setError("");
               }}
               placeholder="Digite seu nome"
-              className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-red-600 transition-colors"
               autoFocus
               disabled={isLoading}
             />
@@ -80,7 +78,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-amber-500 text-white font-bold py-3 rounded-lg hover:bg-amber-600 transition-colors text-lg disabled:bg-amber-300 disabled:cursor-wait"
+            className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors text-lg disabled:bg-red-300 disabled:cursor-wait"
           >
             {isLoading ? "Carregando..." : "Começar Pedido"}
           </button>
@@ -249,10 +247,10 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-100 to-red-50 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-amber-800 mb-2">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
             {requiresRegistration ? "Cadastrar Conta" : "Fazer Login"}
           </h1>
           <p className="text-stone-600">
@@ -278,7 +276,7 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
                 value={cpf}
                 onChange={handleCPFChange}
                 placeholder="000.000.000-00"
-                className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-lg"
+                className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-red-600 transition-colors text-lg"
                 autoFocus
                 disabled={isLoading}
               />
@@ -288,7 +286,7 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
             <button
               type="submit"
               disabled={isLoading || cpf.replace(/\D/g, "").length !== 11}
-              className="w-full bg-amber-500 text-white font-bold py-3 rounded-lg hover:bg-amber-600 transition-colors text-lg disabled:bg-amber-300 disabled:cursor-not-allowed"
+              className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors text-lg disabled:bg-red-300 disabled:cursor-not-allowed"
             >
               {isLoading ? "Verificando..." : "Continuar"}
             </button>
@@ -328,15 +326,15 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
                   setError("");
                 }}
                 placeholder="Digite seu nome completo"
-                className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-lg"
+                className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-red-600 transition-colors text-lg"
                 autoFocus
                 disabled={isLoading}
               />
               {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
             </div>
 
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded">
-              <p className="text-sm text-amber-800">
+            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded">
+              <p className="text-sm text-red-800">
                 <strong>🎉 CPF não cadastrado!</strong>
                 <br />
                 Vamos criar sua conta. Digite seu nome para continuar.
@@ -346,7 +344,7 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
             <button
               type="submit"
               disabled={isLoading || name.trim().length < 3}
-              className="w-full bg-amber-500 text-white font-bold py-3 rounded-lg hover:bg-amber-600 transition-colors text-lg disabled:bg-amber-300 disabled:cursor-not-allowed"
+              className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors text-lg disabled:bg-red-300 disabled:cursor-not-allowed"
             >
               {isLoading ? "Cadastrando..." : "Cadastrar"}
             </button>
@@ -472,7 +470,7 @@ const LoginPage: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-128px)] p-4">
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-2xl shadow-xl">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-amber-800">Bem-vindo(a)!</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Bem-vindo(a)!</h1>
           <p className="mt-2 text-stone-600">
             Olá, <strong>{guestUserName}</strong>!
           </p>
@@ -485,7 +483,7 @@ const LoginPage: React.FC = () => {
         {/* Botão para continuar como convidado */}
         <button
           onClick={handleGuestContinue}
-          className="w-full flex items-center justify-center p-4 text-lg font-semibold text-white bg-amber-500 rounded-xl border-2 border-amber-500 hover:bg-amber-600 hover:border-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all duration-300 ease-in-out transform hover:-translate-y-1"
+          className="w-full flex items-center justify-center p-4 text-lg font-semibold text-white bg-red-600 rounded-xl border-2 border-red-600 hover:bg-red-700 hover:border-red-800 focus:outline-none focus:ring-2 focus:ring-red-400 transition-all duration-300 ease-in-out transform hover:-translate-y-1"
         >
           🚀 Continuar como Convidado
         </button>

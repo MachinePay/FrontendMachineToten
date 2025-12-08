@@ -59,7 +59,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {/* Conteúdo */}
       <div className="p-4 flex flex-col flex-grow justify-between">
         <div>
-          <h3 className="font-bold text-lg md:text-xl text-amber-900 leading-tight mb-2">
+          <h3 className="font-bold text-lg md:text-xl text-gray-800 leading-tight mb-2">
             {product.name}
           </h3>
           <p className="hidden md:block text-sm text-stone-600 line-clamp-2 mb-3">
@@ -78,7 +78,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               className={`w-full font-bold py-3 px-4 rounded-xl text-base md:text-lg transition-colors shadow-sm ${
                 isOutOfStock
                   ? "bg-stone-300 text-stone-500 cursor-not-allowed"
-                  : "bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700"
+                  : "bg-red-600 text-white hover:bg-red-700 active:bg-red-800"
               }`}
             >
               {quantityInCart > 0
@@ -168,7 +168,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
       >
         <h2
           className={`text-2xl md:text-3xl font-bold flex items-center gap-3 ${
-            isMobile ? "text-white" : "text-amber-800"
+            isMobile ? "text-white" : "text-gray-800"
           }`}
         >
           <span>🛒</span> Minha Cesta (
@@ -195,22 +195,22 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
           <>
             {/* SUGESTÃO DE UPSELL (GRANDE E VISÍVEL) */}
             {cartSuggestion && (
-              <div className="p-5 bg-gradient-to-r from-amber-100 to-orange-100 border-l-8 border-amber-500 rounded-xl shadow-md mb-6">
+              <div className="p-5 bg-gradient-to-r from-red-50 to-red-100 border-l-8 border-red-600 rounded-xl shadow-md mb-6">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-start gap-3">
                     <span className="text-3xl">✨</span>
                     <div>
-                      <p className="text-sm font-bold text-amber-800 uppercase tracking-wide mb-1">
+                      <p className="text-sm font-bold text-red-800 uppercase tracking-wide mb-1">
                         Dica do Chef
                       </p>
-                      <p className="text-lg md:text-xl text-amber-900 font-medium leading-snug">
+                      <p className="text-lg md:text-xl text-gray-900 font-medium leading-snug">
                         {cartSuggestion}
                       </p>
                     </div>
                   </div>
 
                   {suggestedProduct && (
-                    <div className="mt-2 ml-2 flex items-center gap-4 bg-white/60 p-3 rounded-xl border border-amber-200/50 shadow-sm">
+                    <div className="mt-2 ml-2 flex items-center gap-4 bg-white/60 p-3 rounded-xl border border-red-200/50 shadow-sm">
                       <div className="hidden xs:block w-16 h-16 bg-gray-200 rounded-lg overflow-hidden shrink-0">
                         <video
                           src={suggestedProduct.videoUrl}
@@ -219,16 +219,16 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-amber-900 truncate">
+                        <p className="text-base font-bold text-gray-900 truncate">
                           {suggestedProduct.name}
                         </p>
-                        <p className="text-base font-bold text-amber-700">
+                        <p className="text-base font-bold text-red-700">
                           R$ {suggestedProduct.price.toFixed(2)}
                         </p>
                       </div>
                       <button
                         onClick={() => onAddToCart(suggestedProduct)}
-                        className="bg-amber-600 text-white text-base font-bold px-5 py-3 rounded-xl shadow-md hover:bg-amber-700 transition-colors whitespace-nowrap"
+                        className="bg-red-600 text-white text-base font-bold px-5 py-3 rounded-xl shadow-md hover:bg-red-700 transition-colors whitespace-nowrap"
                       >
                         + Adicionar
                       </button>
@@ -266,7 +266,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                   </span>
                   <button
                     onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="w-12 md:w-14 h-full flex items-center justify-center bg-amber-500 text-white font-bold text-2xl hover:bg-amber-600 transition-colors active:bg-amber-700"
+                    className="w-12 md:w-14 h-full flex items-center justify-center bg-red-600 text-white font-bold text-2xl hover:bg-red-700 transition-colors active:bg-red-800"
                   >
                     +
                   </button>
@@ -292,8 +292,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
               id="observation"
               value={observation}
               onChange={handleObservationChange}
-              placeholder="Ex: Sem cebola, ponto da carne, retirar molho..."
-              className="w-full p-3 border-2 border-stone-300 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all text-lg"
+              placeholder="Ex: Sem wasabi, molho à parte, hashi incluso..."
+              className="w-full p-3 border-2 border-stone-300 rounded-xl focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 transition-all text-lg"
               rows={2}
             />
             {showObservationSaved && observation && (
@@ -350,22 +350,26 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
     const dynamicCat = dynamicCategories.find((dc) => dc.name === categoryName);
     if (dynamicCat) return dynamicCat.icon;
 
-    // Fallback para ícones automáticos baseados em nome
+    // Fallback para ícones automáticos baseados em nome - Tema Japonês
     const lowerCat = categoryName.toLowerCase();
-    if (lowerCat.includes("pastel")) return "🥟";
+    if (lowerCat.includes("sushi") || lowerCat.includes("niguiri")) return "🍣";
+    if (lowerCat.includes("sashimi")) return "🐟";
+    if (lowerCat.includes("hot") || lowerCat.includes("roll")) return "🍱";
+    if (lowerCat.includes("temaki")) return "🌯";
     if (lowerCat.includes("bebida")) return "🥤";
     if (lowerCat.includes("doce") || lowerCat.includes("sobremesa"))
       return "🍰";
     if (lowerCat.includes("combo")) return "🍱";
-    if (lowerCat.includes("porção") || lowerCat.includes("fritas")) return "🍟";
+    if (lowerCat.includes("entrada") || lowerCat.includes("appetizer"))
+      return "🥟";
     return "🍽️";
   };
 
   return (
     <aside className="w-[100px] md:w-72 bg-white z-40 flex flex-col h-full border-r border-stone-200 shadow-xl overflow-hidden shrink-0">
       {/* Logo Area */}
-      <div className="h-20 md:h-28 flex items-center justify-center border-b border-stone-100 bg-amber-500">
-        <span className="md:hidden text-4xl">🍔</span>
+      <div className="h-20 md:h-28 flex items-center justify-center border-b border-stone-100 bg-red-600">
+        <span className="md:hidden text-4xl">🍣</span>
         <h1 className="hidden md:block text-3xl font-extrabold text-white tracking-wide">
           MENU
         </h1>
@@ -377,7 +381,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
           onClick={() => onSelectCategory(null)}
           className={`w-full py-6 px-2 md:px-6 flex flex-col md:flex-row items-center md:justify-start gap-2 md:gap-6 transition-all duration-200 border-l-8 ${
             selectedCategory === null
-              ? "bg-amber-50 border-amber-600 text-amber-800"
+              ? "bg-red-50 border-red-600 text-red-800"
               : "border-transparent bg-white text-stone-400 hover:bg-stone-50 hover:text-stone-600"
           }`}
         >
@@ -403,7 +407,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
               onClick={() => onSelectCategory(category)}
               className={`w-full py-6 px-2 md:px-6 flex flex-col md:flex-row items-center md:justify-start gap-2 md:gap-6 transition-all duration-200 border-l-8 ${
                 isSelected
-                  ? "bg-amber-50 border-amber-600 text-amber-800"
+                  ? "bg-red-50 border-red-600 text-red-800"
                   : "border-transparent text-stone-400 hover:bg-stone-50 hover:text-stone-600 bg-white"
               }`}
             >

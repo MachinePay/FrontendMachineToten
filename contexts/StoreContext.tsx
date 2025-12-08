@@ -34,13 +34,13 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// Configuração padrão (fallback)
+// Configuração padrão (fallback) - Tema Sushi Man
 const DEFAULT_STORE_CONFIG: Omit<StoreConfig, "id"> = {
-  name: "Kiosk Pro",
+  name: "Sushi Man",
   logo: null,
-  primaryColor: "#f59e0b", // amber-500
-  secondaryColor: "#78350f", // amber-900
-  accentColor: "#fbbf24", // amber-400
+  primaryColor: "#dc2626", // red-600 - vermelho japonês
+  secondaryColor: "#1f2937", // gray-800 - preto profundo
+  accentColor: "#ef4444", // red-500 - vermelho accent
 };
 
 interface StoreProviderProps {
