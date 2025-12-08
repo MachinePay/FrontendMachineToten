@@ -272,9 +272,20 @@ const AdminPage: React.FC = () => {
 
   const loadProducts = async () => {
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/menu`
-      );
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+      const storeId = getCurrentStoreId();
+
+      const res = await fetch(`${API_URL}/api/menu`, {
+        headers: {
+          "Content-Type": "application/json",
+          "x-store-id": storeId, // 🏪 MULTI-TENANT
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Erro ao carregar produtos: ${res.status}`);
+      }
+
       const data = await res.json();
       setMenu(data);
 
