@@ -461,11 +461,32 @@ const extractStoreId = (req, res, next) => {
     "/api/super-admin/dashboard", // Super Admin tem acesso global
     "/api/point/configure",
     "/api/point/status",
+    "/api/ai/suggestion", // IA: Sugestões de produtos
+    "/api/ai/chat", // IA: Chat geral
+    "/api/ai/kitchen-priority", // IA: Priorização de pedidos
+    "/api/users/check-cpf", // Usuários: Verificar CPF
+    "/api/users/register", // Usuários: Cadastro
+    "/api/payment/create-pix", // Pagamentos: Criar PIX
+    "/api/payment/create", // Pagamentos: Criar pagamento
+    "/api/payment/clear-queue", // Pagamentos: Limpar fila
   ];
 
   // Se for rota pública, pula validação (match EXATO apenas)
   if (publicRoutes.includes(req.path)) {
     console.log(`✅ [MIDDLEWARE] Rota pública, pulando validação`);
+    return next();
+  }
+
+  // Verifica rotas dinâmicas (com parâmetros)
+  const publicRoutesPatterns = [
+    /^\/api\/payment\/status\/.+$/, // /api/payment/status/:paymentId
+    /^\/api\/payment\/status-pix\/.+$/, // /api/payment/status-pix/:orderId
+    /^\/api\/payment\/cancel\/.+$/, // /api/payment/cancel/:paymentId
+    /^\/api\/users\/cpf\/.+$/, // /api/users/cpf/:cpf
+  ];
+
+  if (publicRoutesPatterns.some((pattern) => pattern.test(req.path))) {
+    console.log(`✅ [MIDDLEWARE] Rota dinâmica pública, pulando validação`);
     return next();
   }
 
@@ -727,9 +748,9 @@ app.get("/api/users", authenticateToken, authorizeAdmin, async (req, res) => {
   }
 });
 
-// Login/Registro com CPF (retorna usuário existente ou cria novo)
-app.post("/api/users/login-cpf", async (req, res) => {
-  const { cpf, name } = req.body;
+// ========== PASSO 1: Verificar se CPF existe (NÃO cria usuário) ==========
+app.post("/api/users/check-cpf", async (req, res) => {
+  const { cpf } = req.body;
 
   if (!cpf) {
     return res.status(400).json({ error: "CPF obrigatório" });
@@ -742,28 +763,67 @@ app.post("/api/users/login-cpf", async (req, res) => {
   }
 
   try {
-    // Busca usuário existente
-    let user = await db("users").where({ cpf: cpfClean }).first();
+    const user = await db("users").where({ cpf: cpfClean }).first();
 
     if (user) {
-      console.log(
-        `✅ Login CPF: Usuário existente encontrado - ${user.name} (${cpfClean})`
-      );
+      console.log(`✅ CPF encontrado: ${user.name} (${cpfClean})`);
       return res.json({
-        ...user,
-        historico: parseJSON(user.historico),
-        isNewUser: false,
+        exists: true,
+        requiresRegistration: false,
+        user: {
+          ...user,
+          historico: parseJSON(user.historico),
+        },
+      });
+    }
+
+    console.log(`📋 CPF não encontrado: ${cpfClean} - necessário cadastro`);
+    return res.json({
+      exists: false,
+      requiresRegistration: true,
+      cpf: cpfClean,
+    });
+  } catch (e) {
+    console.error("❌ Erro ao verificar CPF:", e);
+    res.status(500).json({ error: "Erro ao verificar CPF" });
+  }
+});
+
+// ========== PASSO 2: Cadastrar novo usuário (APENAS se não existir) ==========
+app.post("/api/users/register", async (req, res) => {
+  const { cpf, name } = req.body;
+
+  if (!cpf || !name) {
+    return res.status(400).json({ error: "CPF e nome são obrigatórios" });
+  }
+
+  const cpfClean = String(cpf).replace(/\D/g, "");
+
+  if (cpfClean.length !== 11) {
+    return res.status(400).json({ error: "CPF inválido" });
+  }
+
+  try {
+    // Verifica se já existe (segurança extra)
+    const exists = await db("users").where({ cpf: cpfClean }).first();
+
+    if (exists) {
+      console.log(`⚠️ Tentativa de cadastro duplicado: ${cpfClean}`);
+      return res.status(409).json({
+        error: "CPF já cadastrado",
+        user: {
+          ...exists,
+          historico: parseJSON(exists.historico),
+        },
       });
     }
 
     // Cria novo usuário
-    console.log(
-      `📝 Login CPF: Criando novo usuário - ${name || "Sem Nome"} (${cpfClean})`
-    );
+    console.log(`📝 Cadastrando novo usuário: ${name} (${cpfClean})`);
 
     const newUser = {
       id: `user_${Date.now()}`,
-      name: name || "Cliente",
+      name: name.trim(),
       email: null,
       cpf: cpfClean,
       historico: JSON.stringify([]),
@@ -772,16 +832,18 @@ app.post("/api/users/login-cpf", async (req, res) => {
 
     await db("users").insert(newUser);
 
-    console.log(`✅ Novo usuário criado: ${newUser.id}`);
+    console.log(`✅ Usuário cadastrado com sucesso: ${newUser.id}`);
 
     res.status(201).json({
-      ...newUser,
-      historico: [],
-      isNewUser: true,
+      success: true,
+      user: {
+        ...newUser,
+        historico: [],
+      },
     });
   } catch (e) {
-    console.error("❌ Erro no login por CPF:", e);
-    res.status(500).json({ error: "Erro ao processar login" });
+    console.error("❌ Erro ao cadastrar usuário:", e);
+    res.status(500).json({ error: "Erro ao cadastrar usuário" });
   }
 });
 
@@ -2249,10 +2311,15 @@ app.post("/api/ai/suggestion", async (req, res) => {
   try {
     console.log("🤖 Chamando OpenAI para sugestão...");
 
-    // Busca produtos disponíveis da loja (MULTI-TENANCY)
-    const products = await db("products")
-      .where({ store_id: req.storeId })
-      .select("id", "name", "description", "price", "category", "stock");
+    // Busca TODOS os produtos disponíveis no catálogo
+    const products = await db("products").select(
+      "id",
+      "name",
+      "description",
+      "price",
+      "category",
+      "stock"
+    );
     const availableProducts = products.filter(
       (p) => p.stock === null || p.stock > 0
     );
@@ -2343,7 +2410,7 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
     // Se IA indisponível, retorna ordem cronológica normal
     try {
       const orders = await db("orders")
-        .where({ status: "active", store_id: req.storeId })
+        .where({ status: "active" })
         .orderBy("timestamp", "asc")
         .select("*");
 
@@ -2361,7 +2428,7 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
     // 1. Busca pedidos ativos (não finalizados) - ORDENADOS DO MAIS ANTIGO PARA O MAIS RECENTE
     // Esta é a ordem BASE (FIFO) que a IA deve respeitar ao otimizar
     const orders = await db("orders")
-      .where({ status: "active", store_id: req.storeId })
+      .where({ status: "active" })
       .orderBy("timestamp", "asc") // ASC = Mais antigo primeiro (CORRETO!)
       .select("*");
 
@@ -2403,10 +2470,8 @@ app.get("/api/ai/kitchen-priority", async (req, res) => {
     console.log("🍳 Mudança detectada - recalculando com IA...");
     console.log(`📋 ${orders.length} pedido(s) na fila`);
 
-    // 2. Busca informações dos produtos para calcular complexidade (MULTI-TENANCY)
-    const products = await db("products")
-      .where({ store_id: req.storeId })
-      .select("*");
+    // 2. Busca informações dos produtos para calcular complexidade
+    const products = await db("products").select("*");
     const productMap = {};
     products.forEach((p) => {
       productMap[p.id] = p;
@@ -2622,17 +2687,13 @@ app.get(
     try {
       console.log("🤖 Iniciando análise inteligente de estoque...");
 
-      // 1. Buscar produtos com estoque da loja (MULTI-TENANCY)
-      const products = await db("products")
-        .where({ store_id: req.storeId })
-        .select("*")
-        .orderBy("category");
+      // 1. Buscar todos os produtos com estoque
+      const products = await db("products").select("*").orderBy("category");
 
-      // 2. Buscar histórico de pedidos da loja (últimos 30 dias - MULTI-TENANCY)
+      // 2. Buscar histórico de pedidos (últimos 30 dias)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const orders = await db("orders")
-        .where({ store_id: req.storeId })
         .where("timestamp", ">=", thirtyDaysAgo.toISOString())
         .select("*");
 

@@ -97,10 +97,11 @@ interface CPFLoginProps {
 
 const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
   const [cpf, setCpf] = useState("");
+  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [userNotFound, setUserNotFound] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
+  const [requiresRegistration, setRequiresRegistration] = useState(false);
+  const [cleanedCPF, setCleanedCPF] = useState("");
 
   const formatCPF = (value: string) => {
     const cleaned = value.replace(/\D/g, "");
@@ -114,10 +115,12 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
   const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCpf(formatCPF(e.target.value));
     setError("");
-    setUserNotFound(false);
+    setRequiresRegistration(false);
+    setName("");
   };
 
-  const searchUserByCPF = async (e: React.FormEvent) => {
+  // PASSO 1: Verificar se CPF existe
+  const checkCPF = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCPF = cpf.replace(/\D/g, "");
 
@@ -128,49 +131,38 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
 
     setIsLoading(true);
     setError("");
+    setCleanedCPF(cleanCPF);
 
     try {
       const storeId = getCurrentStoreId();
-      // Nova rota do backend para login com CPF
       const response = await fetch(
         `${
           import.meta.env.VITE_API_URL || "http://localhost:3001"
-        }/api/users/login-cpf`,
+        }/api/users/check-cpf`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-store-id": storeId, // 🏪 MULTI-TENANT
           },
-          body: JSON.stringify({ cpf: cleanCPF, name: "Cliente" }),
+          body: JSON.stringify({ cpf: cleanCPF }),
         }
       );
 
       if (!response.ok) {
-        throw new Error("Erro ao fazer login");
+        throw new Error("Erro ao verificar CPF");
       }
 
-      const user = await response.json();
+      const data = await response.json();
 
-      // Mostra mensagem apropriada com SweetAlert
-      if (user.isNewUser) {
-        // Usuário foi criado agora
-        await Swal.fire({
-          title: "🎉 Bem-vindo!",
-          html: `Olá, <strong>${user.name}</strong>!<br><br>Sua conta foi criada com sucesso.<br>Aproveite nossos deliciosos pastéis!`,
-          icon: "success",
-          confirmButtonColor: "#f59e0b",
-          confirmButtonText: "Começar Pedido",
-          timer: 3000,
-          timerProgressBar: true,
-        });
-        onLoginSuccess(user);
-      } else {
-        // Usuário já existia
+      if (data.exists && data.user) {
+        // Usuário encontrado - fazer login direto
         await Swal.fire({
           title: "👋 Bem-vindo de volta!",
-          html: `Olá, <strong>${user.name}</strong>!<br><br>Você tem <strong>${
-            user.pontos || 0
+          html: `Olá, <strong>${
+            data.user.name
+          }</strong>!<br><br>Você tem <strong>${
+            data.user.pontos || 0
           } pontos</strong> acumulados! 🌟`,
           icon: "success",
           confirmButtonColor: "#f59e0b",
@@ -178,176 +170,74 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
           timer: 3000,
           timerProgressBar: true,
         });
-        onLoginSuccess(user);
+        onLoginSuccess(data.user);
+      } else if (data.requiresRegistration) {
+        // CPF não encontrado - pedir nome para cadastro
+        setRequiresRegistration(true);
       }
     } catch (err) {
-      setError("Erro ao buscar CPF. Tente novamente.");
-      console.error("Erro no login:", err);
+      setError("Erro ao verificar CPF. Tente novamente.");
+      console.error("Erro ao verificar CPF:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (showRegister) {
-    return (
-      <RegisterScreen
-        cpf={cpf}
-        onBack={() => {
-          setShowRegister(false);
-          setUserNotFound(false);
-          setCpf("");
-        }}
-        onRegisterSuccess={onLoginSuccess}
-      />
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-amber-800 mb-2">
-            Fazer Login
-          </h1>
-          <p className="text-stone-600">Digite seu CPF para continuar</p>
-        </div>
-
-        <form onSubmit={searchUserByCPF} className="space-y-6">
-          <div>
-            <label
-              htmlFor="cpf"
-              className="block text-sm font-semibold text-stone-700 mb-2"
-            >
-              CPF
-            </label>
-            <input
-              id="cpf"
-              type="text"
-              value={cpf}
-              onChange={handleCPFChange}
-              placeholder="000.000.000-00"
-              className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-lg"
-              autoFocus
-              disabled={isLoading}
-            />
-            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
-          </div>
-
-          {userNotFound && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
-              <p className="text-sm text-yellow-800">
-                <strong>CPF não encontrado!</strong>
-                <br />
-                Você pode criar uma nova conta com este CPF.
-              </p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading || cpf.replace(/\D/g, "").length !== 11}
-            className="w-full bg-amber-500 text-white font-bold py-3 rounded-lg hover:bg-amber-600 transition-colors text-lg disabled:bg-amber-300 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Buscando..." : "Continuar"}
-          </button>
-        </form>
-
-        <button
-          onClick={onBack}
-          className="w-full mt-4 py-2 text-sm text-stone-600 hover:text-stone-800 transition-colors"
-        >
-          ← Voltar
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// --- Componente de Registro ---
-interface RegisterScreenProps {
-  cpf: string;
-  onBack: () => void;
-  onRegisterSuccess: (user: User) => void;
-}
-
-const RegisterScreen: React.FC<RegisterScreenProps> = ({
-  cpf,
-  onBack,
-  onRegisterSuccess,
-}) => {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleRegister = async (e: React.FormEvent) => {
+  // PASSO 2: Cadastrar novo usuário com nome
+  const registerUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
-    if (!name.trim() || name.trim().length < 2) {
-      setError("Nome deve ter pelo menos 2 caracteres");
-      return;
-    }
-
-    if (!email.includes("@")) {
-      setError("Email inválido");
+    if (!name.trim() || name.trim().length < 3) {
+      setError("Nome deve ter pelo menos 3 caracteres");
       return;
     }
 
     setIsLoading(true);
-    try {
-      const payload = {
-        id: `user_${Date.now()}`,
-        name: name.trim(),
-        email: email.trim(),
-        cpf: cpf.replace(/\D/g, ""),
-        historico: [],
-        pontos: 0,
-      };
+    setError("");
 
+    try {
       const storeId = getCurrentStoreId();
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/users`,
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:3001"
+        }/api/users/register`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-store-id": storeId, // 🏪 MULTI-TENANT
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ cpf: cleanedCPF, name: name.trim() }),
         }
       );
 
-      if (res.status === 409) {
-        setError("CPF já cadastrado. Faça login.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (!res.ok) {
-        // try to read server error message
-        let text = "";
-        try {
-          const data = await res.json();
-          text = data && data.error ? data.error : JSON.stringify(data);
-        } catch (e) {
-          try {
-            text = await res.text();
-          } catch (e2) {
-            text = "";
-          }
+      if (!response.ok) {
+        if (response.status === 409) {
+          setError("CPF já cadastrado. Tente fazer login.");
+          setRequiresRegistration(false);
+          setName("");
+          return;
         }
-        console.error("Server error on create user:", res.status, text);
-        setError(text || "Falha ao salvar");
-        setIsLoading(false);
-        return;
+        throw new Error("Erro ao cadastrar");
       }
 
-      const created = await res.json();
-      onRegisterSuccess(created as User);
+      const data = await response.json();
+
+      if (data.success && data.user) {
+        await Swal.fire({
+          title: "🎉 Bem-vindo!",
+          html: `Olá, <strong>${data.user.name}</strong>!<br><br>Sua conta foi criada com sucesso.<br>Aproveite nossos deliciosos pastéis!`,
+          icon: "success",
+          confirmButtonColor: "#f59e0b",
+          confirmButtonText: "Começar Pedido",
+          timer: 3000,
+          timerProgressBar: true,
+        });
+        onLoginSuccess(data.user);
+      }
     } catch (err) {
-      console.error(err);
-      setError("Erro ao criar conta. Tente novamente.");
+      setError("Erro ao cadastrar. Tente novamente.");
+      console.error("Erro ao cadastrar:", err);
     } finally {
       setIsLoading(false);
     }
@@ -358,93 +248,126 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-amber-800 mb-2">
-            Criar Conta
+            {requiresRegistration ? "Cadastrar Conta" : "Fazer Login"}
           </h1>
           <p className="text-stone-600">
-            Complete seus dados para se registrar
+            {requiresRegistration
+              ? "Complete seu cadastro com seu nome"
+              : "Digite seu CPF para continuar"}
           </p>
         </div>
 
-        <form onSubmit={handleRegister} className="space-y-4">
-          <div>
-            <label
-              htmlFor="cpf-display"
-              className="block text-sm font-semibold text-stone-700 mb-2"
-            >
-              CPF
-            </label>
-            <input
-              id="cpf-display"
-              type="text"
-              value={cpf}
-              disabled
-              className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg bg-stone-100 text-stone-600"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-semibold text-stone-700 mb-2"
-            >
-              Nome Completo
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError("");
-              }}
-              placeholder="Digite seu nome"
-              className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors"
-              disabled={isLoading}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-semibold text-stone-700 mb-2"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError("");
-              }}
-              placeholder="seu@email.com"
-              className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors"
-              disabled={isLoading}
-            />
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded">
-              <p className="text-sm text-red-800">{error}</p>
+        {!requiresRegistration ? (
+          // PASSO 1: Formulário de CPF
+          <form onSubmit={checkCPF} className="space-y-6">
+            <div>
+              <label
+                htmlFor="cpf"
+                className="block text-sm font-semibold text-stone-700 mb-2"
+              >
+                CPF
+              </label>
+              <input
+                id="cpf"
+                type="text"
+                value={cpf}
+                onChange={handleCPFChange}
+                placeholder="000.000.000-00"
+                className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-lg"
+                autoFocus
+                disabled={isLoading}
+              />
+              {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
             </div>
-          )}
 
+            <button
+              type="submit"
+              disabled={isLoading || cpf.replace(/\D/g, "").length !== 11}
+              className="w-full bg-amber-500 text-white font-bold py-3 rounded-lg hover:bg-amber-600 transition-colors text-lg disabled:bg-amber-300 disabled:cursor-not-allowed"
+            >
+              {isLoading ? "Verificando..." : "Continuar"}
+            </button>
+          </form>
+        ) : (
+          // PASSO 2: Formulário de Cadastro com Nome
+          <form onSubmit={registerUser} className="space-y-6">
+            <div>
+              <label
+                htmlFor="cpf-display"
+                className="block text-sm font-semibold text-stone-700 mb-2"
+              >
+                CPF
+              </label>
+              <input
+                id="cpf-display"
+                type="text"
+                value={cpf}
+                disabled
+                className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg bg-stone-100 text-stone-600 text-lg"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="name"
+                className="block text-sm font-semibold text-stone-700 mb-2"
+              >
+                Nome Completo
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError("");
+                }}
+                placeholder="Digite seu nome completo"
+                className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-lg"
+                autoFocus
+                disabled={isLoading}
+              />
+              {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+            </div>
+
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded">
+              <p className="text-sm text-amber-800">
+                <strong>🎉 CPF não cadastrado!</strong>
+                <br />
+                Vamos criar sua conta. Digite seu nome para continuar.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || name.trim().length < 3}
+              className="w-full bg-amber-500 text-white font-bold py-3 rounded-lg hover:bg-amber-600 transition-colors text-lg disabled:bg-amber-300 disabled:cursor-not-allowed"
+            >
+              {isLoading ? "Cadastrando..." : "Cadastrar"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRequiresRegistration(false);
+                setName("");
+                setError("");
+              }}
+              className="w-full py-2 text-sm text-stone-600 hover:text-stone-800 transition-colors"
+            >
+              ← Voltar para CPF
+            </button>
+          </form>
+        )}
+
+        {!requiresRegistration && (
           <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors text-lg disabled:bg-green-300 disabled:cursor-wait"
+            onClick={onBack}
+            className="w-full mt-4 py-2 text-sm text-stone-600 hover:text-stone-800 transition-colors"
           >
-            {isLoading ? "Criando conta..." : "Criar Conta"}
+            ← Voltar
           </button>
-        </form>
-
-        <button
-          onClick={onBack}
-          className="w-full mt-4 py-2 text-sm text-stone-600 hover:text-stone-800 transition-colors"
-        >
-          ← Voltar
-        </button>
+        )}
       </div>
     </div>
   );
