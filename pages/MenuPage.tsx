@@ -486,11 +486,18 @@ const MenuPage: React.FC = () => {
   // 🆕 Busca categorias do backend
   const fetchCategories = async () => {
     try {
+      console.log("🔄 Carregando categorias do backend...");
       const { getCategories } = await import("../services/categoryService");
       const data = await getCategories();
+      console.log("📦 Categorias recebidas:", data);
+
       if (data.length > 0) {
         setDynamicCategories(data);
-        console.log(`✅ ${data.length} categorias carregadas`);
+        console.log(
+          `✅ ${data.length} categorias carregadas e setadas no estado`
+        );
+      } else {
+        console.warn("⚠️ Nenhuma categoria encontrada no backend");
       }
     } catch (error) {
       console.error("❌ Erro ao buscar categorias:", error);
@@ -574,14 +581,26 @@ const MenuPage: React.FC = () => {
     }, {} as Record<string, Product[]>);
   }, [menu]);
 
+  // 🆕 Usa categorias dinâmicas do backend (com ordem), ou fallback para categorias com produtos
+  const displayCategories = useMemo(() => {
+    if (dynamicCategories.length > 0) {
+      // Ordena pelas categorias do backend (usando campo order)
+      return dynamicCategories
+        .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+        .map((cat) => cat.name);
+    }
+    // Fallback: usa categorias dos produtos existentes
+    return Object.keys(categorizedMenu).sort();
+  }, [dynamicCategories, categorizedMenu]);
+
   return (
     <div className="flex h-screen w-full bg-stone-100 overflow-hidden font-sans">
       {/* 1. SIDEBAR ESQUERDA */}
       <CategorySidebar
-        categories={Object.keys(categorizedMenu).sort()}
+        categories={displayCategories} // 🆕 Usa categorias dinâmicas ordenadas
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
-        dynamicCategories={dynamicCategories} // 🆕 Passa categorias dinâmicas
+        dynamicCategories={dynamicCategories}
       />
 
       {/* 2. ÁREA CENTRAL */}
