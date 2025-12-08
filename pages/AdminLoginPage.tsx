@@ -53,6 +53,11 @@ const AdminLoginPage: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-800 to-indigo-900 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
+          <img
+            src="/selfMachine.jpg"
+            alt="Self Machine"
+            className="w-32 h-auto mx-auto mb-4 rounded-lg shadow-md"
+          />
           <h1 className="text-4xl font-bold text-purple-800 mb-2">
             👑 Acesso Administrador
           </h1>

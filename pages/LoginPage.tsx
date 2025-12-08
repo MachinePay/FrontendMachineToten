@@ -40,6 +40,11 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-10">
         <div className="text-center mb-8">
+          <img
+            src="/selfMachine.jpg"
+            alt="Self Machine"
+            className="w-48 h-auto mx-auto mb-6 rounded-xl shadow-lg"
+          />
           <h1 className="text-4xl font-bold text-amber-800 mb-2">
             MachineToten
           </h1>
