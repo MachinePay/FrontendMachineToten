@@ -1,4 +1,11 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "env": {
+    "VITE_API_URL": "https://backendkioskpro.onrender.com",
+    "VITE_DEFAULT_STORE_ID": "pastel1"
+  },
   "redirects": [
     {
       "source": "/",

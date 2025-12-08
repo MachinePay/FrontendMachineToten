@@ -1,0 +1,7 @@
+# Vercel Ignore File
+node_modules
+.env.local
+.env*.local
+dist
+.cache
+.turbo
