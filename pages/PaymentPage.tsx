@@ -361,6 +361,11 @@ const PaymentPage: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-green-50 p-4 animate-fade-in-down">
         <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-md w-full">
+          <img
+            src="/selfMachine.jpg"
+            alt="Self Machine"
+            className="w-32 h-auto mx-auto mb-4 rounded-lg shadow-md"
+          />
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">✅</span>
           </div>
