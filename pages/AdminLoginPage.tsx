@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { login as apiLogin, isAuthenticated } from "../services/apiService";
+import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
 
 const AdminLoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
@@ -9,6 +10,7 @@ const AdminLoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login, currentUser } = useAuth();
   const navigate = useNavigate();
+  const storeId = getCurrentStoreId(); // 🏪 Identifica a loja atual
 
   useEffect(() => {
     // Se já está logado como admin, redirecionar
@@ -55,6 +57,10 @@ const AdminLoginPage: React.FC = () => {
             👑 Acesso Administrador
           </h1>
           <p className="text-slate-600">Digite a senha para acessar</p>
+          {/* 🏪 Mostra qual loja está sendo acessada */}
+          <div className="mt-3 inline-block bg-purple-100 text-purple-800 px-4 py-2 rounded-full text-sm font-semibold">
+            🏪 Loja: <span className="font-mono">{storeId}</span>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

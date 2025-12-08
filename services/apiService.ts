@@ -49,11 +49,19 @@ export async function login(
   password: string
 ): Promise<boolean> {
   try {
+    const storeId = getStoreId();
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+    };
+
+    // 🏪 MULTI-TENANT: Envia storeId no login para logging
+    if (storeId) {
+      headers["x-store-id"] = storeId;
+    }
+
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({ role, password }),
     });
 
@@ -66,7 +74,7 @@ export async function login(
     if (data.success && data.token) {
       // Salva o token no localStorage
       saveToken(data.token);
-      console.log("Login bem-sucedido!");
+      console.log(`✅ Login bem-sucedido! Role: ${role} | Store: ${storeId}`);
       return true;
     }
     return false;
