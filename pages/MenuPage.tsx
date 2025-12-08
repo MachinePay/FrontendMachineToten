@@ -336,13 +336,31 @@ interface CategorySidebarProps {
   categories: string[];
   selectedCategory: string | null;
   onSelectCategory: (category: string | null) => void;
+  dynamicCategories?: Array<{ name: string; icon: string; order: number }>; // 🆕
 }
 
 const CategorySidebar: React.FC<CategorySidebarProps> = ({
   categories,
   selectedCategory,
   onSelectCategory,
+  dynamicCategories = [], // 🆕
 }) => {
+  // 🆕 Helper para pegar ícone dinâmico ou fallback
+  const getCategoryIcon = (categoryName: string): string => {
+    const dynamicCat = dynamicCategories.find((dc) => dc.name === categoryName);
+    if (dynamicCat) return dynamicCat.icon;
+
+    // Fallback para ícones automáticos baseados em nome
+    const lowerCat = categoryName.toLowerCase();
+    if (lowerCat.includes("pastel")) return "🥟";
+    if (lowerCat.includes("bebida")) return "🥤";
+    if (lowerCat.includes("doce") || lowerCat.includes("sobremesa"))
+      return "🍰";
+    if (lowerCat.includes("combo")) return "🍱";
+    if (lowerCat.includes("porção") || lowerCat.includes("fritas")) return "🍟";
+    return "🍽️";
+  };
+
   return (
     <aside className="w-[100px] md:w-72 bg-white z-40 flex flex-col h-full border-r border-stone-200 shadow-xl overflow-hidden shrink-0">
       {/* Logo Area */}
@@ -377,15 +395,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
         {categories.map((category) => {
           const isSelected = selectedCategory === category;
-          let icon = "🍽️";
-          const lowerCat = category.toLowerCase();
-          if (lowerCat.includes("pastel")) icon = "🥟";
-          if (lowerCat.includes("bebida")) icon = "🥤";
-          if (lowerCat.includes("doce") || lowerCat.includes("sobremesa"))
-            icon = "🍰";
-          if (lowerCat.includes("combo")) icon = "🍱";
-          if (lowerCat.includes("porção") || lowerCat.includes("fritas"))
-            icon = "🍟";
+          const icon = getCategoryIcon(category); // 🆕 Usa ícone dinâmico
 
           return (
             <button
@@ -432,6 +442,10 @@ const MenuPage: React.FC = () => {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // 🆕 Estado para categorias dinâmicas
+  const [dynamicCategories, setDynamicCategories] = useState<
+    Array<{ name: string; icon: string; order: number }>
+  >([]);
 
   const { currentUser } = useAuth();
 
@@ -469,8 +483,23 @@ const MenuPage: React.FC = () => {
     }
   };
 
+  // 🆕 Busca categorias do backend
+  const fetchCategories = async () => {
+    try {
+      const { getCategories } = await import("../services/categoryService");
+      const data = await getCategories();
+      if (data.length > 0) {
+        setDynamicCategories(data);
+        console.log(`✅ ${data.length} categorias carregadas`);
+      }
+    } catch (error) {
+      console.error("❌ Erro ao buscar categorias:", error);
+    }
+  };
+
   useEffect(() => {
     fetchMenuData();
+    fetchCategories(); // 🆕 Carrega categorias
   }, []);
 
   useEffect(() => {
@@ -552,6 +581,7 @@ const MenuPage: React.FC = () => {
         categories={Object.keys(categorizedMenu).sort()}
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
+        dynamicCategories={dynamicCategories} // 🆕 Passa categorias dinâmicas
       />
 
       {/* 2. ÁREA CENTRAL */}

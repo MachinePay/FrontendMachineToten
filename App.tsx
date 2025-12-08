@@ -19,6 +19,7 @@ import KitchenLoginPage from "./pages/KitchenLoginPage";
 import AdminPage from "./pages/AdminPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
+import AdminCategoriesPage from "./pages/AdminCategoriesPage"; // 🆕
 import ScreensaverPage from "./pages/ScreensaverPage";
 import Header from "./components/Header";
 import Chatbot from "./components/Chatbot";
@@ -197,6 +198,19 @@ const RouterBody: React.FC = () => {
                 redirectTo="/admin/login"
               >
                 <AdminPage />
+              </RoleProtectedRoute>
+            }
+          />
+
+          {/* 🆕 Rota protegida para gerenciar categorias */}
+          <Route
+            path="/admin/categories"
+            element={
+              <RoleProtectedRoute
+                allowedRoles={["admin"]}
+                redirectTo="/admin/login"
+              >
+                <AdminCategoriesPage />
               </RoleProtectedRoute>
             }
           />

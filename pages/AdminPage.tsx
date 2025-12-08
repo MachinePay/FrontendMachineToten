@@ -36,6 +36,38 @@ const ProductForm: React.FC<ProductFormProps> = ({
     stock: 0,
   });
 
+  // 🆕 Estado para categorias dinâmicas
+  const [categories, setCategories] = useState<Array<{ name: string }>>([]);
+
+  // 🆕 Carrega categorias ao montar componente
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const { getCategories } = await import("../services/categoryService");
+        const data = await getCategories();
+        if (data.length > 0) {
+          setCategories(data);
+        } else {
+          // Fallback caso não haja categorias
+          setCategories([
+            { name: "Pastel" },
+            { name: "Bebida" },
+            { name: "Doce" },
+          ]);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar categorias:", error);
+        // Fallback em caso de erro
+        setCategories([
+          { name: "Pastel" },
+          { name: "Bebida" },
+          { name: "Doce" },
+        ]);
+      }
+    };
+    loadCategories();
+  }, []);
+
   // Quando o prop `product` muda (por ex. abrir para editar), preenche o formulário.
   useEffect(() => {
     if (product) {
@@ -46,12 +78,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
         name: "",
         description: "",
         price: 0,
-        category: "Pastel",
+        category: categories.length > 0 ? categories[0].name : "Pastel",
         videoUrl: "",
         stock: 0,
       });
     }
-  }, [product]);
+  }, [product, categories]);
 
   // Atualiza campos do formulário. Convertendo price para número quando necessário.
   const handleChange = (
@@ -162,7 +194,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               >
                 Categoria
               </label>
-              {/* Select de categoria */}
+              {/* Select de categoria - 🆕 dinâmico */}
               <select
                 name="category"
                 id="category"
@@ -170,9 +202,19 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
               >
-                <option>Pastel</option>
-                <option>Bebida</option>
-                <option>Doce</option>
+                {categories.length > 0 ? (
+                  categories.map((cat) => (
+                    <option key={cat.name} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option>Pastel</option>
+                    <option>Bebida</option>
+                    <option>Doce</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
@@ -423,9 +465,15 @@ const AdminPage: React.FC = () => {
         </h1>
         <div className="flex gap-3">
           <button
+            onClick={() => navigate("/admin/categories")}
+            className="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition-colors shadow-md"
+          >
+            📂 Categorias
+          </button>
+          <button
             onClick={handleGenerateAnalysis}
             disabled={isLoadingAnalysis}
-            className="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition-colors shadow-md disabled:bg-purple-300 flex items-center gap-2"
+            className="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition-colors shadow-md disabled:bg-indigo-300 flex items-center gap-2"
           >
             {isLoadingAnalysis ? "⏳ Analisando..." : "🤖 Análise com IA"}
           </button>
