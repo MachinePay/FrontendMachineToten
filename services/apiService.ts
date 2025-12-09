@@ -1,5 +1,6 @@
 // Serviço de API com autenticação JWT e Multi-tenant
 import { getCurrentStoreId } from "../utils/tenantResolver";
+import api from "./api"; // 🆕 Importa instância com interceptor
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_URL = `${BASE_URL}/api`;
@@ -14,6 +15,9 @@ export function getToken(): string | null {
 /**
  * Obtém o storeId atual para enviar nas requisições
  * SEMPRE retorna um valor (nunca null)
+ *
+ * NOTA: Esta função ainda existe para compatibilidade, mas o x-store-id
+ * agora é adicionado automaticamente pelo interceptor em services/api.ts
  */
 function getStoreId(): string {
   try {
