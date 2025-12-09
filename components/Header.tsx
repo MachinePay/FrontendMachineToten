@@ -15,7 +15,7 @@ const Header: React.FC = () => {
   };
 
   const activeLinkStyle = {
-    color: "#dc2626", // red-600 - tema japonês
+    color: "#d97706", // amber-600 - tema pastelaria
     fontWeight: 600,
   };
 
@@ -35,8 +35,8 @@ const Header: React.FC = () => {
                 className="w-8 h-8 rounded-lg shadow-sm group-hover:scale-105 transition-transform object-cover"
               />
             ) : (
-              <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white text-xl shadow-sm group-hover:scale-105 transition-transform">
-                🍣
+              <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center text-white text-xl shadow-sm group-hover:scale-105 transition-transform">
+                🥟
               </div>
             )}
             <span className="text-xl font-bold text-stone-800 tracking-tight">
@@ -54,7 +54,7 @@ const Header: React.FC = () => {
                 style={({ isActive }) =>
                   isActive ? activeLinkStyle : undefined
                 }
-                className="text-stone-500 hover:text-red-600 transition-colors font-medium"
+                className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
               >
                 Cardápio
               </NavLink>
@@ -64,7 +64,7 @@ const Header: React.FC = () => {
             <NavLink
               to="/cozinha"
               style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
-              className="text-stone-500 hover:text-red-600 transition-colors font-medium"
+              className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
             >
               Pedidos Cozinha
             </NavLink>
@@ -77,7 +77,7 @@ const Header: React.FC = () => {
                 style={({ isActive }) =>
                   isActive ? activeLinkStyle : undefined
                 }
-                className="text-stone-500 hover:text-red-600 transition-colors font-medium"
+                className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
               >
                 Produtos
               </NavLink>
@@ -86,7 +86,7 @@ const Header: React.FC = () => {
                 style={({ isActive }) =>
                   isActive ? activeLinkStyle : undefined
                 }
-                className="text-stone-500 hover:text-red-600 transition-colors font-medium"
+                className="text-stone-500 hover:text-amber-600 transition-colors font-medium"
               >
                 Relatórios IA
               </NavLink>

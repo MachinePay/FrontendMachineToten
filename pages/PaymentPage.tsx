@@ -473,7 +473,7 @@ const PaymentPage: React.FC = () => {
           {status === "processing" ? (
             <button
               onClick={handleCancelPayment}
-              className="mt-4 w-full py-4 rounded-xl font-bold text-xl bg-red-600 text-white hover:bg-red-700 shadow-lg transition-transform hover:scale-105"
+              className="mt-4 w-full py-4 rounded-xl font-bold text-xl bg-amber-600 text-white hover:bg-amber-700 shadow-lg transition-transform hover:scale-105"
             >
               ❌ Cancelar Pagamento
             </button>

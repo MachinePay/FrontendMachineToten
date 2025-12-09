@@ -268,7 +268,7 @@ const KitchenPage: React.FC = () => {
                 navigate("/cozinha/login");
               }
             }}
-            className="bg-red-500 text-white font-bold py-2 md:py-1.5 lg:py-2 px-6 md:px-4 lg:px-6 rounded-lg hover:bg-red-600 transition-colors shadow-md text-sm md:text-xs lg:text-sm"
+            className="bg-amber-500 text-white font-bold py-2 md:py-1.5 lg:py-2 px-6 md:px-4 lg:px-6 rounded-lg hover:bg-amber-600 transition-colors shadow-md text-sm md:text-xs lg:text-sm"
           >
             🚪 Sair
           </button>

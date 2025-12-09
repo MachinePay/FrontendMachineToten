@@ -493,7 +493,7 @@ const AdminPage: React.FC = () => {
                 navigate("/admin/login");
               }
             }}
-            className="bg-red-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors shadow-md"
+            className="bg-amber-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-600 transition-colors shadow-md"
           >
             🚪 Sair
           </button>

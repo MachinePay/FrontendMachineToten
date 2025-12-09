@@ -78,7 +78,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors text-lg disabled:bg-red-300 disabled:cursor-wait"
+            className="w-full bg-amber-600 text-white font-bold py-3 rounded-lg hover:bg-amber-700 transition-colors text-lg disabled:bg-amber-300 disabled:cursor-wait"
           >
             {isLoading ? "Carregando..." : "Começar Pedido"}
           </button>
@@ -483,7 +483,7 @@ const LoginPage: React.FC = () => {
         {/* Botão para continuar como convidado */}
         <button
           onClick={handleGuestContinue}
-          className="w-full flex items-center justify-center p-4 text-lg font-semibold text-white bg-red-600 rounded-xl border-2 border-red-600 hover:bg-red-700 hover:border-red-800 focus:outline-none focus:ring-2 focus:ring-red-400 transition-all duration-300 ease-in-out transform hover:-translate-y-1"
+          className="w-full flex items-center justify-center p-4 text-lg font-semibold text-white bg-amber-600 rounded-xl border-2 border-amber-600 hover:bg-amber-700 hover:border-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all duration-300 ease-in-out transform hover:-translate-y-1"
         >
           🚀 Continuar como Convidado
         </button>
