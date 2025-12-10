@@ -167,20 +167,27 @@ const KitchenPage: React.FC = () => {
   const fetchOrders = useCallback(async () => {
     try {
       const storeId = getCurrentStoreId();
-      const resp = await fetch(`${BACKEND_URL}/api/ai/kitchen-priority`, {
+
+      // Busca pedidos ativos da cozinha (com autenticação)
+      const resp = await authenticatedFetch(`${BACKEND_URL}/api/orders`, {
         headers: {
           "x-store-id": storeId,
         },
       });
-      const data: AIKitchenResponse = await resp.json();
 
-      setActiveOrders(data.orders);
-      setAiEnabled(data.aiEnabled);
-      setReasoning(data.reasoning || data.message || "");
+      if (!resp.ok) {
+        throw new Error(`Erro ao buscar pedidos: ${resp.status}`);
+      }
+
+      const orders: Order[] = await resp.json();
+
+      setActiveOrders(orders);
+      setAiEnabled(false); // Por enquanto, sem IA
+      setReasoning("");
 
       // --- LÓGICA DE ÁUDIO ---
       if (audioEnabled) {
-        data.orders.forEach((order) => {
+        orders.forEach((order) => {
           if (!seenOrderIds.current.has(order.id)) {
             // Novo pedido detectado!
             seenOrderIds.current.add(order.id);
@@ -200,7 +207,7 @@ const KitchenPage: React.FC = () => {
         });
       } else {
         // Se áudio desligado, marca como visto silenciosamente
-        data.orders.forEach((o) => seenOrderIds.current.add(o.id));
+        orders.forEach((o) => seenOrderIds.current.add(o.id));
       }
     } catch (err) {
       console.error("❌ Erro ao carregar pedidos:", err);
@@ -244,7 +251,7 @@ const KitchenPage: React.FC = () => {
             </span>
           )}
 
-          <span className="bg-amber-600 text-white px-4 md:px-3 lg:px-4 py-1.5 md:py-1 lg:py-1.5 rounded-full text-sm md:text-xs lg:text-sm font-bold shadow-sm">
+          <span className="bg-red-600 text-white px-4 md:px-3 lg:px-4 py-1.5 md:py-1 lg:py-1.5 rounded-full text-sm md:text-xs lg:text-sm font-bold shadow-sm">
             {activeOrders.length} pedido{activeOrders.length !== 1 ? "s" : ""}
           </span>
 
@@ -253,7 +260,7 @@ const KitchenPage: React.FC = () => {
             onClick={() => setAudioEnabled(!audioEnabled)}
             className={`flex items-center gap-2 md:gap-1 lg:gap-2 px-4 md:px-3 lg:px-4 py-2 md:py-1.5 lg:py-2 rounded-full font-bold text-sm md:text-xs lg:text-sm shadow-sm transition-all ${
               audioEnabled
-                ? "bg-amber-100 text-amber-800 border-2 border-amber-500"
+                ? "bg-red-100 text-red-800 border-2 border-red-500"
                 : "bg-stone-300 text-stone-600 hover:bg-stone-400"
             }`}
           >
@@ -268,7 +275,7 @@ const KitchenPage: React.FC = () => {
                 navigate("/cozinha/login");
               }
             }}
-            className="bg-amber-500 text-white font-bold py-2 md:py-1.5 lg:py-2 px-6 md:px-4 lg:px-6 rounded-lg hover:bg-amber-600 transition-colors shadow-md text-sm md:text-xs lg:text-sm"
+            className="bg-red-600 text-white font-bold py-2 md:py-1.5 lg:py-2 px-6 md:px-4 lg:px-6 rounded-lg hover:bg-red-700 transition-colors shadow-md text-sm md:text-xs lg:text-sm"
           >
             🚪 Sair
           </button>
@@ -288,7 +295,7 @@ const KitchenPage: React.FC = () => {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-200 border-t-red-600 mb-4"></div>
           <p className="text-stone-500 font-medium">Carregando pedidos...</p>
         </div>
       ) : activeOrders.length === 0 ? (
