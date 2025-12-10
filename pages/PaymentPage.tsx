@@ -6,6 +6,12 @@ import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
 import { clearPaymentQueue } from "../services/pointService";
 import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
+import {
+  createPixPayment,
+  createCardPayment,
+  checkPaymentStatus,
+  cancelPayment,
+} from "../services/paymentService";
 import type { Order, CartItem } from "../types";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -58,12 +64,10 @@ const PaymentPage: React.FC = () => {
     queryKey: ["paymentStatus", activePayment?.id, activePayment?.type],
     queryFn: async () => {
       if (!activePayment) return null;
-      const endpoint = activePayment.type === "pix" ? "pix" : "payment";
-      const response = await fetchWithStoreId(
-        `${BACKEND_URL}/api/${endpoint}/status/${activePayment.id}`
-      );
-      if (!response.ok) throw new Error("Erro ao verificar status");
-      return response.json();
+      const result = await checkPaymentStatus(activePayment.id);
+      if (!result.success)
+        throw new Error(result.error || "Erro ao verificar status");
+      return result;
     },
     // Só executa se tiver um pagamento ativo e não tiver finalizado ainda
     enabled: !!activePayment && status === "processing",
@@ -251,31 +255,27 @@ const PaymentPage: React.FC = () => {
     try {
       const orderId = await createOrder();
 
-      const createResp = await fetchWithStoreId(
-        `${BACKEND_URL}/api/pix/create`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            amount: cartTotal,
-            description: `Pedido de ${currentUser!.name}`,
-            orderId: orderId,
-          }),
-        }
-      );
+      const result = await createPixPayment({
+        amount: cartTotal,
+        description: `Pedido de ${currentUser!.name}`,
+        orderId: orderId,
+        email: currentUser?.email,
+        payerName: currentUser?.name,
+      });
 
-      const pixData = await createResp.json();
-      if (!pixData.paymentId || !pixData.qrCodeBase64)
-        throw new Error("Erro ao gerar PIX");
+      if (!result.success || !result.paymentId || !result.qrCode) {
+        throw new Error(result.error || "Erro ao gerar PIX");
+      }
 
-      setQrCodeBase64(pixData.qrCodeBase64);
+      setQrCodeBase64(result.qrCode);
       setPaymentStatusMessage("Escaneie o QR Code...");
 
       // Inicia Polling Automático via React Query
-      setActivePayment({ id: pixData.paymentId, type: "pix", orderId });
+      setActivePayment({ id: result.paymentId, type: "pix", orderId });
     } catch (err: any) {
       console.error(err);
       setStatus("error");
-      setErrorMessage("Erro no PIX.");
+      setErrorMessage(err.message || "Erro no PIX.");
     }
   };
 
@@ -286,31 +286,25 @@ const PaymentPage: React.FC = () => {
     try {
       const orderId = await createOrder();
 
-      const createResp = await fetchWithStoreId(
-        `${BACKEND_URL}/api/payment/create`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: cartTotal,
-            description: `Pedido ${currentUser!.name}`,
-            orderId: orderId,
-            paymentMethod: paymentMethod,
-          }),
-        }
-      );
+      const result = await createCardPayment({
+        amount: cartTotal,
+        description: `Pedido ${currentUser!.name}`,
+        orderId: orderId,
+        paymentMethod: paymentMethod as "credit" | "debit",
+      });
 
-      const paymentData = await createResp.json();
-      if (!paymentData.id) throw new Error("Erro na maquininha");
+      if (!result.success || !result.paymentId) {
+        throw new Error(result.error || "Erro na maquininha");
+      }
 
       setPaymentStatusMessage("Aguardando pagamento na maquininha...");
 
       // Inicia Polling Automático via React Query
-      setActivePayment({ id: paymentData.id, type: "card", orderId });
+      setActivePayment({ id: result.paymentId, type: "card", orderId });
     } catch (err: any) {
       console.error(err);
       setStatus("error");
-      setErrorMessage("Erro ao conectar maquininha.");
+      setErrorMessage(err.message || "Erro ao conectar maquininha.");
     }
   };
 
@@ -328,18 +322,18 @@ const PaymentPage: React.FC = () => {
 
     if (result.isConfirmed) {
       try {
-        await fetchWithStoreId(
-          `${BACKEND_URL}/api/payment/cancel/${activePayment.id}`,
-          {
-            method: "DELETE",
-          }
-        );
+        const cancelResult = await cancelPayment(activePayment.id);
+
+        if (!cancelResult.success) {
+          throw new Error(cancelResult.error || "Erro ao cancelar");
+        }
+
         setActivePayment(null); // Para o polling imediatamente
         setStatus("idle");
         setQrCodeBase64(null);
         Swal.fire("Cancelado", "Pagamento cancelado.", "success");
-      } catch (e) {
-        Swal.fire("Erro", "Erro ao cancelar.", "error");
+      } catch (e: any) {
+        Swal.fire("Erro", e.message || "Erro ao cancelar.", "error");
       }
     }
   };
