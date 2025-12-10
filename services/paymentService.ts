@@ -104,13 +104,15 @@ export async function checkPaymentStatus(
   try {
     const response = await api.get(`/api/payment/status/${paymentId}`);
 
+    // Mapeia campos do backend para o formato esperado pelo frontend
     return {
       success: true,
-      id: response.data.paymentId || paymentId,
-      status: response.data.status,
-      statusDetail: response.data.paymentStatus,
+      id: response.data.paymentId || response.data.id || paymentId,
+      status: response.data.status, // "approved", "pending", "canceled", "rejected", "FINISHED"
+      statusDetail: response.data.paymentStatus || response.data.statusDetail,
       orderId: response.data.orderId,
       reason: response.data.reason,
+      amount: response.data.amount,
     };
   } catch (error: any) {
     console.error("❌ Erro ao verificar status:", error);
