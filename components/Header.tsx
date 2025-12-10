@@ -32,10 +32,10 @@ const Header: React.FC = () => {
               <img
                 src={store.logo}
                 alt={`${store.name} logo`}
-                className="w-8 h-8 rounded-lg shadow-sm group-hover:scale-105 transition-transform object-cover"
+                className="w-8 h-8 rounded-lg group-hover:scale-105 transition-transform object-cover"
               />
             ) : (
-              <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center text-white text-xl shadow-sm group-hover:scale-105 transition-transform">
+              <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center text-white text-xl group-hover:scale-105 transition-transform">
                 🥟
               </div>
             )}
