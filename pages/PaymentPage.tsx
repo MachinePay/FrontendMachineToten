@@ -358,7 +358,7 @@ const PaymentPage: React.FC = () => {
           <img
             src="/selfMachine.jpg"
             alt="Self Machine"
-            className="w-32 h-auto mx-auto mb-4 rounded-lg shadow-md"
+            className="w-32 h-auto mx-auto mb-4 rounded-lg"
           />
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">✅</span>

@@ -56,7 +56,7 @@ const AdminLoginPage: React.FC = () => {
           <img
             src="/selfMachine.jpg"
             alt="Self Machine"
-            className="w-32 h-auto mx-auto mb-4 rounded-lg shadow-md"
+            className="w-32 h-auto mx-auto mb-4 rounded-lg"
           />
           <h1 className="text-4xl font-bold text-purple-800 mb-2">
             👑 Acesso Administrador

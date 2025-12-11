@@ -43,9 +43,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <img
             src="/selfMachine.jpg"
             alt="Self Machine"
-            className="w-48 h-auto mx-auto mb-6 rounded-xl shadow-lg"
+            className="w-48 h-auto mx-auto mb-6 rounded-xl"
           />
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Sushi Man</h1>
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Pastel Kiosk</h1>
           <p className="text-stone-600">
             Bem-vindo à nossa deliciosa experiência!
           </p>
