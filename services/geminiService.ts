@@ -61,7 +61,7 @@ Exemplo: "${clientName}, que tal uma Coca-Cola geladinha? Vai combinar perfeitam
   try {
     const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
 
-    const response = await fetch(`${API_URL}/suggestion`, {
+    const response = await fetch(`${API_URL}/api/ai/suggestion`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -138,7 +138,7 @@ Exemplo: "${clientName}, que tal adicionar uma Coca geladinha? Vai combinar perf
   try {
     const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
 
-    const response = await fetch(`${API_URL}/suggestion`, {
+    const response = await fetch(`${API_URL}/api/ai/suggestion`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -189,7 +189,7 @@ Exemplo recorrente: "${clientName}, que alegria ter você aqui de novo! Preparei
   try {
     const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
 
-    const response = await fetch(`${API_URL}/suggestion`, {
+    const response = await fetch(`${API_URL}/api/ai/suggestion`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -224,7 +224,7 @@ export const sendMessageToChatbot = async (
   try {
     const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
 
-    const response = await fetch(`${API_URL}/chat`, {
+    const response = await fetch(`${API_URL}/api/ai/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
