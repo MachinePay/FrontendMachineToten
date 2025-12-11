@@ -97,7 +97,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Ex: Sushis, Sashimis, Hot Rolls, Bebidas"
+              placeholder="Ex: Pastel de queijo, pastel de carne, pastel doce..."
               className="w-full px-4 py-2 border-2 border-stone-200 rounded-lg focus:outline-none focus:border-purple-500"
               required
             />
