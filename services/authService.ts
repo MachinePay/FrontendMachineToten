@@ -1,4 +1,5 @@
 import type { User } from "../types";
+import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
 
 // Configuração da URL da API via variável de ambiente
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -13,8 +14,14 @@ export const validateCPF = (cpf: string): boolean => {
 // Buscar usuário por CPF via API
 export const findUserByCPF = async (cpf: string): Promise<User | null> => {
   try {
+    const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
+
     // server.js expõe GET /api/users (lista). Buscamos todos e filtramos pelo CPF.
-    const resp = await fetch(`${API_URL}/users`);
+    const resp = await fetch(`${API_URL}/users`, {
+      headers: {
+        "x-store-id": storeId, // 🏪 Envia storeId
+      },
+    });
     if (!resp.ok) return null;
     const users: User[] = await resp.json();
     const clean = String(cpf).replace(/\D/g, "");
@@ -36,10 +43,13 @@ export const registerUser = async (userData: {
   telefone: string;
 }): Promise<User | null> => {
   try {
+    const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
+
     const response = await fetch(`${API_URL}/users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-store-id": storeId, // 🏪 Envia storeId
       },
       body: JSON.stringify(userData),
     });
@@ -65,10 +75,13 @@ export const saveOrder = async (
   total: number
 ) => {
   try {
+    const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
+
     const response = await fetch(`${API_URL}/orders`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-store-id": storeId, // 🏪 Envia storeId
       },
       body: JSON.stringify({
         userId,
@@ -94,7 +107,13 @@ export const saveOrder = async (
 // Obter histórico do usuário via API
 export const getUserHistory = async (userId: string) => {
   try {
-    const response = await fetch(`${API_URL}/users/${userId}/historico`);
+    const storeId = getCurrentStoreId(); // 🏪 Obtém storeId
+
+    const response = await fetch(`${API_URL}/users/${userId}/historico`, {
+      headers: {
+        "x-store-id": storeId, // 🏪 Envia storeId
+      },
+    });
     const data = await response.json();
     return data;
   } catch (error) {
