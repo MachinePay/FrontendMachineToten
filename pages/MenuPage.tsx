@@ -292,8 +292,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
               id="observation"
               value={observation}
               onChange={handleObservationChange}
-              placeholder="Ex: Sem wasabi, molho à parte, hashi incluso..."
-              className="w-full p-3 border-2 border-stone-300 rounded-xl focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 transition-all text-lg"
+              placeholder="Ex: Sem cebola, molho à parte, bem passado..."
+              className="w-full p-3 border-2 border-stone-300 rounded-xl focus:outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200 transition-all text-lg"
               rows={2}
             />
             {showObservationSaved && observation && (
@@ -350,26 +350,26 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
     const dynamicCat = dynamicCategories.find((dc) => dc.name === categoryName);
     if (dynamicCat) return dynamicCat.icon;
 
-    // Fallback para ícones automáticos baseados em nome - Tema Japonês
+    // Fallback para ícones automáticos baseados em nome - Tema Pastelaria
     const lowerCat = categoryName.toLowerCase();
-    if (lowerCat.includes("sushi") || lowerCat.includes("niguiri")) return "🍣";
-    if (lowerCat.includes("sashimi")) return "🐟";
-    if (lowerCat.includes("hot") || lowerCat.includes("roll")) return "🍱";
-    if (lowerCat.includes("temaki")) return "🌯";
-    if (lowerCat.includes("bebida")) return "🥤";
+    if (lowerCat.includes("pastel") || lowerCat.includes("frito")) return "🥟";
+    if (lowerCat.includes("assado") || lowerCat.includes("forno")) return "🥐";
     if (lowerCat.includes("doce") || lowerCat.includes("sobremesa"))
       return "🍰";
-    if (lowerCat.includes("combo")) return "🍱";
+    if (lowerCat.includes("bebida")) return "🥤";
+    if (lowerCat.includes("salgado")) return "🥟";
+    if (lowerCat.includes("combo")) return "🍽️";
     if (lowerCat.includes("entrada") || lowerCat.includes("appetizer"))
-      return "🥟";
-    return "🍽️";
+      return "🥙";
+    if (lowerCat.includes("especial")) return "⭐";
+    return "🥟";
   };
 
   return (
     <aside className="w-[100px] md:w-72 bg-white z-40 flex flex-col h-full border-r border-stone-200 shadow-xl overflow-hidden shrink-0">
       {/* Logo Area */}
       <div className="h-20 md:h-28 flex items-center justify-center border-b border-stone-100 bg-amber-600">
-        <span className="md:hidden text-4xl">🍣</span>
+        <span className="md:hidden text-4xl">🥟</span>
         <h1 className="hidden md:block text-3xl font-extrabold text-white tracking-wide">
           MENU
         </h1>
@@ -381,7 +381,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
           onClick={() => onSelectCategory(null)}
           className={`w-full py-6 px-2 md:px-6 flex flex-col md:flex-row items-center md:justify-start gap-2 md:gap-6 transition-all duration-200 border-l-8 ${
             selectedCategory === null
-              ? "bg-red-50 border-red-600 text-red-800"
+              ? "bg-amber-50 border-amber-600 text-amber-800"
               : "border-transparent bg-white text-stone-400 hover:bg-stone-50 hover:text-stone-600"
           }`}
         >
@@ -407,7 +407,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
               onClick={() => onSelectCategory(category)}
               className={`w-full py-6 px-2 md:px-6 flex flex-col md:flex-row items-center md:justify-start gap-2 md:gap-6 transition-all duration-200 border-l-8 ${
                 isSelected
-                  ? "bg-red-50 border-red-600 text-red-800"
+                  ? "bg-amber-50 border-amber-600 text-amber-800"
                   : "border-transparent text-stone-400 hover:bg-stone-50 hover:text-stone-600 bg-white"
               }`}
             >
