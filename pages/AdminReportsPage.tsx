@@ -1,4 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import type { Order } from "../types";
 import { authenticatedFetch } from "../services/apiService";
 import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
@@ -10,6 +25,16 @@ interface AIRecommendation {
   monthlyRevenue: number;
   insights: string;
 }
+
+// Cores para os gráficos
+const COLORS = [
+  "#f59e0b",
+  "#ef4444",
+  "#3b82f6",
+  "#10b981",
+  "#8b5cf6",
+  "#ec4899",
+];
 
 const AdminReportsPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -195,6 +220,49 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
     return { topProducts, peakDays, peakHours, monthlyRevenue };
   };
 
+  // Gerar dados de evolução de vendas (últimos 30 dias)
+  const salesEvolutionData = useMemo(() => {
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (29 - i));
+      return date;
+    });
+
+    return last30Days.map((date) => {
+      const dayOrders = orders.filter((order) => {
+        const orderDate = new Date(order.timestamp);
+        return orderDate.toDateString() === date.toDateString();
+      });
+
+      const revenue = dayOrders.reduce((sum, order) => sum + order.total, 0);
+
+      return {
+        date: `${date.getDate()}/${date.getMonth() + 1}`,
+        pedidos: dayOrders.length,
+        faturamento: revenue,
+      };
+    });
+  }, [orders]);
+
+  // Gerar dados para gráfico de pizza (categorias)
+  const categoriesData = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        const category = item.category || "Outros";
+        categoryMap.set(
+          category,
+          (categoryMap.get(category) || 0) + item.quantity
+        );
+      });
+    });
+
+    return Array.from(categoryMap.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [orders]);
+
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="mb-8">
@@ -226,7 +294,7 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
       {/* Relatório */}
       {recommendation && (
         <div className="space-y-6">
-          {/* Cards de métricas */}
+          {/* Cards de métricas principais */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-lg border-l-4 border-green-500">
               <h3 className="text-sm font-semibold text-green-800 mb-2">
@@ -234,6 +302,13 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
               </h3>
               <p className="text-3xl font-bold text-green-900">
                 R$ {recommendation.monthlyRevenue.toFixed(2)}
+              </p>
+              <p className="text-sm text-green-700 mt-2">
+                Média: R${" "}
+                {(recommendation.monthlyRevenue / orders.length || 0).toFixed(
+                  2
+                )}{" "}
+                por pedido
               </p>
             </div>
 
@@ -244,35 +319,186 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
               <p className="text-3xl font-bold text-blue-900">
                 {orders.length}
               </p>
+              <p className="text-sm text-blue-700 mt-2">Últimos 30 dias</p>
             </div>
 
-            <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-xl shadow-lg border-l-4 border-red-600">
-              <h3 className="text-sm font-semibold text-red-800 mb-2">
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-xl shadow-lg border-l-4 border-amber-600">
+              <h3 className="text-sm font-semibold text-amber-800 mb-2">
                 🏆 Produto Top
               </h3>
               <p className="text-xl font-bold text-gray-900">
                 {recommendation.topProducts[0]?.name || "N/A"}
               </p>
+              <p className="text-sm text-amber-700 mt-2">
+                {recommendation.topProducts[0]?.quantity || 0} unidades
+              </p>
             </div>
           </div>
 
-          {/* Produtos mais vendidos */}
+          {/* Gráfico de Evolução de Vendas (Linha) - 30 dias */}
+          <div className="bg-white p-6 rounded-xl shadow-lg">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+              📈 Evolução de Vendas - Últimos 30 Dias
+            </h2>
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart data={salesEvolutionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis
+                  dataKey="date"
+                  stroke="#64748b"
+                  style={{ fontSize: "12px" }}
+                />
+                <YAxis stroke="#64748b" style={{ fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#fff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    padding: "12px",
+                  }}
+                  formatter={(value: number, name: string) => [
+                    name === "faturamento" ? `R$ ${value.toFixed(2)}` : value,
+                    name === "faturamento" ? "Faturamento" : "Pedidos",
+                  ]}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: "20px" }}
+                  formatter={(value) =>
+                    value === "faturamento" ? "Faturamento (R$)" : "Pedidos"
+                  }
+                />
+                <Line
+                  type="monotone"
+                  dataKey="faturamento"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  dot={{ fill: "#10b981", r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="pedidos"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
+                  dot={{ fill: "#3b82f6", r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Grid com 2 gráficos lado a lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Gráfico de Pizza - Categorias Mais Vendidas */}
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+              <h2 className="text-2xl font-bold text-slate-800 mb-6">
+                🥧 Categorias Mais Vendidas
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={categoriesData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) =>
+                      `${name}: ${(percent * 100).toFixed(0)}%`
+                    }
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {categoriesData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [
+                      `${value} unidades`,
+                      "Total",
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-4 space-y-2">
+                {categoriesData.map((cat, index) => (
+                  <div
+                    key={cat.name}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{
+                          backgroundColor: COLORS[index % COLORS.length],
+                        }}
+                      />
+                      <span className="font-medium text-slate-700">
+                        {cat.name}
+                      </span>
+                    </div>
+                    <span className="text-slate-600">{cat.value} un.</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Gráfico de Barras - Top 5 Produtos */}
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+              <h2 className="text-2xl font-bold text-slate-800 mb-6">
+                🏆 Top 5 Produtos
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={recommendation.topProducts}
+                  layout="horizontal"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" stroke="#64748b" />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="#64748b"
+                    width={120}
+                    style={{ fontSize: "12px" }}
+                  />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      name === "revenue" ? `R$ ${value.toFixed(2)}` : value,
+                      name === "revenue" ? "Faturamento" : "Quantidade",
+                    ]}
+                  />
+                  <Bar
+                    dataKey="quantity"
+                    fill="#f59e0b"
+                    radius={[0, 8, 8, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Produtos mais vendidos - Lista detalhada */}
           <div className="bg-white p-6 rounded-xl shadow-lg">
             <h2 className="text-2xl font-bold text-slate-800 mb-4">
-              🏆 Top 5 Produtos
+              📊 Detalhamento de Produtos
             </h2>
             <div className="space-y-3">
               {recommendation.topProducts.map((product, index) => (
                 <div
                   key={product.name}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                  className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center gap-4">
-                    <span className="text-2xl font-bold text-slate-400">
+                    <span className="text-3xl font-bold text-slate-400">
                       #{index + 1}
                     </span>
                     <div>
-                      <p className="font-semibold text-slate-800">
+                      <p className="font-semibold text-slate-800 text-lg">
                         {product.name}
                       </p>
                       <p className="text-sm text-slate-500">
@@ -281,8 +507,12 @@ Seja direto e focado em ações práticas. Use emojis para deixar mais visual.`;
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-green-600">
+                    <p className="text-xl font-bold text-green-600">
                       R$ {product.revenue.toFixed(2)}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Média: R${" "}
+                      {(product.revenue / product.quantity).toFixed(2)}
                     </p>
                   </div>
                 </div>
