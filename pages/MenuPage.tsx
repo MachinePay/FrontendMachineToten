@@ -8,6 +8,7 @@ import {
   getChefMessage,
 } from "../services/geminiService";
 import { getProducts } from "../services/apiService"; // 🏪 MULTI-TENANT
+import { getCurrentStoreId } from "../utils/tenantResolver"; // 🏪 MULTI-TENANT
 import type { Product, CartItem } from "../types";
 
 // URL da API
@@ -134,12 +135,31 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   // Lógica para encontrar o produto sugerido
   const suggestedProduct = useMemo(() => {
     if (!cartSuggestion || !menu) return null;
-    return menu.find(
+
+    console.log("🔍 [CART SUGGESTION] Buscando produto:", {
+      suggestion: cartSuggestion,
+      menuLength: menu.length,
+      menuStores: [...new Set(menu.map((p) => p.storeId || "no-store"))],
+    });
+
+    const found = menu.find(
       (p) =>
         cartSuggestion.toLowerCase().includes(p.name.toLowerCase()) ||
         (p.name.toLowerCase().includes("coca") &&
           cartSuggestion.toLowerCase().includes("coca"))
     );
+
+    if (found) {
+      console.log("✅ [CART SUGGESTION] Produto encontrado:", {
+        name: found.name,
+        id: found.id,
+        storeId: found.storeId || "no-store",
+      });
+    } else {
+      console.warn("⚠️ [CART SUGGESTION] Produto não encontrado no menu local");
+    }
+
+    return found;
   }, [cartSuggestion, menu]);
 
   const handleObservationChange = (
@@ -472,8 +492,17 @@ const MenuPage: React.FC = () => {
 
       // ✅ Valida se é array antes de setar
       if (Array.isArray(data)) {
+        console.log(
+          `✅ [MENU] ${data.length} produtos carregados da loja atual:`,
+          {
+            storeId: getCurrentStoreId(),
+            produtos: data.map((p) => ({
+              name: p.name,
+              storeId: p.storeId || "no-store",
+            })),
+          }
+        );
         setMenu(data);
-        console.log(`✅ ${data.length} produtos carregados`);
       } else {
         console.error(
           "❌ Backend retornou dados inválidos (não é array):",
